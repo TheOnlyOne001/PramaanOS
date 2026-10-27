@@ -61,7 +61,7 @@ Python helper for modules: `from saakshi.core_api import log_access` → `log_ac
 
 ## Pay and overtime — `saakshi/pay/`
 
-Event types: `ot.request`, `ot.cap_check`, `ot.consent`, `pay.run`, `ot.opening_balance`
+Event types: `ot.request`, `ot.cap_check`, `ot.consent`, `pay.run`, `pay.paid` (`{period, net, run_seq}`), `pay.adjustment` (`{period, amount, label, case_id, resolved_seq, approver}`), `ot.opening_balance`
 (payload `{quarter:"2026-Q4", hours, source}` — quarter-to-date OT imported at install).
 
 | Method | Path | Body / query | Returns |
@@ -73,9 +73,43 @@ Event types: `ot.request`, `ot.cap_check`, `ot.consent`, `pay.run`, `ot.opening_
 | GET | /ot/requests | `worker_id?, status?` | `[request]` with `status` in pending/accepted/declined/blocked |
 | POST | /ot/requests/{request_id}/consent | `{decision:"accept"\|"decline", channel:"voice"\|"tap"\|"whatsapp", transcript?, ts?}` | `{request, event, receipt}` — consent signed with `worker:<id>` key |
 | GET | /pay/{wid}/today | `day?` | `{day, in, out, worked_hours, ot_hours, earned_today, ot_earned, currency:"INR"}` |
-| GET | /pay/{wid}/payslip | `period=2026-10` | `{period, worker, days_worked, lines:[{label, amount, formula, evidence:[seq]}], gross, deductions:[{label, amount, formula}], total_deductions, net, checks:[{name, ok, detail}], blocked:bool, integrity:{ok, problems}, explanation:{en, ta, hi, or}}` |
+| GET | /pay/{wid}/payslip | `period=2026-10` | `{period, worker, days_worked, lines:[{label, amount, formula, evidence:[seq], explain}], gross, deductions:[{label, amount, formula, explain}], total_deductions, net, checks:[{name, ok, detail}], blocked:bool, integrity:{ok, problems}, explanation:{en, ta, hi, or}, status:"estimated"\|"approved"\|"paid"\|"under_review", status_label:{en, ta, hi, or}, open_disputes:[case_id]}` — see *Payslip status and explain* below |
 | POST | /pay/run | `?period=2026-10` | `{period, blocked, results:[{worker_id, name, gross, net, blocked, failed_checks:[str]}]}` appends `pay.run` per worker |
+| POST | /pay/run/{period}/paid | | `{period, paid:[{worker_id, name, net, seq}], skipped:[{worker_id, name, reason}]}` appends `pay.paid` per worker whose `pay.run` went through (skips held or already-paid workers); 409 if the period was never run |
 | GET | /pay/fairness | `period` | `{period, checks:[{name, ok, detail, workers:[wid]}], ot_gini}` — the 8 fairness checks |
+
+### Payslip status and explain
+
+`status`: `under_review` (an open or assigned dispute on the period; takes precedence) > `paid` (a `pay.paid`
+event for the period) > `approved` (a `pay.run` event) > `estimated`. `status_label` gives short words for it.
+
+Every item in `lines` and `deductions` carries
+`explain:{summary:{en, ta, hi, or}, days_worked:int|null, hours:float|null, rate:float|null, rate_label:str,
+sources:[{seq, ts, type}] (first 20 signed source events), corrections:[{seq, ts, reason, approver}] (punch.correction
+events affecting the period), checks:[name of each payslip check that concerns the item]}`.
+A resolved-and-corrected dispute adds the line `Correction (case PAY-0001)` (from a `pay.adjustment` event); it is
+added to `gross` and `net` in full (PF and ESI are not recomputed).
+
+## Pay disputes — `saakshi/pay/disputes.py`
+
+A worker questions a payslip line; HR or a supervisor owns the case; HR resolves it. Each step is a signed
+ledger event naming the worker (`dispute.opened`, `dispute.assigned`, `dispute.resolved`, plus `pay.adjustment` when
+corrected), so the worker gets a receipt for each, and the `timeline` is read back from those events: the worker app
+and the console show the same history.
+
+Case = `{case_id:"PAY-0001", worker_id, worker_name, period, line, amount_questioned, note, status:"open"|"assigned"|"resolved",
+owner (default "HR · payroll desk"), due:"YYYY-MM-DD" (created + 3 working days, Mon–Sat), created, resolved_at|null,
+outcome:null|"corrected"|"explained", correction_amount|null, timeline:[{ts, kind:"opened"|"assigned"|"resolved", by, text, seq}]}`.
+
+| Method | Path | Body / query | Returns |
+| --- | --- | --- | --- |
+| POST | /pay/{wid}/disputes | `{period:"2026-10", line, amount_questioned>=0, note<=300, ts?}` | Case — the worker only (self) |
+| GET | /pay/{wid}/disputes | | `[Case]` newest first — self, hr, supervisor, auditor |
+| GET | /disputes | `status?=open\|assigned\|resolved` | `[Case]` newest first — hr, supervisor, auditor |
+| POST | /disputes/{case_id}/assign | `{owner, ts?}` | Case, status `assigned` (re-assigning allowed; 409 once resolved) — hr, supervisor |
+| POST | /disputes/{case_id}/resolve | `{outcome:"corrected"\|"explained", note, correction_amount?, ts?}` | Case, status `resolved`; corrected needs a non-zero `correction_amount` (422 otherwise) and appends `pay.adjustment`; 409 if already resolved — hr only |
+
+Python helpers for the console: `from saakshi.pay import disputes` → `disputes.list_cases(status=None)`, `disputes.case(case_id)`.
 
 ## Voice: anonymous, verifiable feedback — `saakshi/voice/`
 
@@ -121,9 +155,28 @@ Event types: `production.count`, `credential.issued`, `credential.revoked`.
 
 kinds: `restricted_zone_entry`, `ppe_noncompliance`, `ppe_compliance_rate`, `fire_smoke`, `blocked_exit`, `person_down`, `queue_length`, `near_miss`, `heat_wbgt`.
 
+## Safety reports — `saakshi/safety/`
+
+A worker's hazard or stop-work call with delivery states. Event types `safety.reported`, `safety.acknowledged`,
+`safety.resolved` (each names the reporting worker, who gets a receipt in their language). State is replayed from
+those events; nothing is updated in place. Acknowledgement is due 15 min after a `stop_work` call, 4 h after a `hazard`.
+Python: `saakshi.safety.list_reports(worker_id=None)`, `report(...)`, `acknowledge(...)`, `resolve(...)`, `get_report(id)`.
+
+Report = `{report_id:"SAFE-0001", worker_id, kind:"hazard"|"stop_work", zone, note, status:"received"|"acknowledged"|"resolved",
+received_at, ack_due, acknowledged_at|null, acknowledged_by|null, resolved_at|null, overdue:bool (still "received" after ack_due),
+timeline:[{ts, kind:"received"|"acknowledged"|"resolved", by, text, seq}]}`
+
+| Method | Path | Body / query | Returns |
+| --- | --- | --- | --- |
+| POST | /safety/reports | `{kind:"hazard"\|"stop_work", zone (≤60), note? (≤300), client_id? (≤64)}` — worker role; the worker comes from the token (`worker_id` in the body only when auth is off) | Report; a repeat `client_id` from the same worker returns the first report, no new event |
+| GET | /safety/reports | `worker_id?` — a worker must pass their own id and only ever sees their own | `[Report]` newest first |
+| POST | /safety/reports/{report_id}/ack | `{note?}` — supervisor or HR (actor from the token) | Report, status `acknowledged` (repeat ack is a no-op; 409 once resolved) |
+| POST | /safety/reports/{report_id}/resolve | `{note}` (required: what was done) — supervisor or HR | Report, status `resolved` (409 if already resolved) |
+
 ## Console and SDG 8 — `saakshi/console.py` (integration)
 
 | Method | Path | Returns |
 | --- | --- | --- |
 | GET | /console/overview | `{site, integrity, exceptions:[{severity:"critical"\|"high"\|"medium", kind, title, detail, people, action, link}], counts}` |
+| GET | /console/queue | `{summaries:[{key:"urgent_safety"\|"pay_discrepancies"\|"pending_approvals"\|"overdue", label, count}], items:[{id, category:"integrity"\|"safety"\|"pay"\|"approval"\|"skills"\|"voice", summary_key|null, severity:"critical"\|"high"\|"medium"\|"low", issue, impact, owner, deadline|null, overdue, next_action:{label, kind:"open_evidence"\|"open_roots"\|"ack_safety"\|"open_dispute"\|"go_section"\|"open_lookup", target}, count, window|null, events:[seq], people:[wid]}]}` — supervisor/hr/auditor. Sorted by severity, then integrity first, then deadline (null last). Repeated edge detections of one zone+kind on one day are one row (`count`, `window`). Summary counts: items with that `summary_key`; `overdue` counts items with `overdue:true` (an overdue safety ack counts in both `urgent_safety` and `overdue`). Python: `saakshi.console.queue()` |
 | GET | /sdg8/scorecard | `{targets:[{target, label, indicator, value, unit, status}]}` |

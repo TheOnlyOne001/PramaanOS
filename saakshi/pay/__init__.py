@@ -11,7 +11,9 @@ Modules, in dependency order:
   limits    quarterly cap usage and the fatigue rule
   overtime  overtime requests (cap and fatigue checked up front) and worker-signed consent
   wages     today's earnings, a period's attendance tally and its rupee amounts
-  payslips  the payslip with its checks and explanations, and the pay run
+  disputes  pay disputes: the pay_disputes table, open / assign / resolve as signed events, the case timeline
+  breakdown the per-line explanation (summary, rate, source events, corrections, checks)
+  payslips  the payslip with its checks, explanations and status, the pay run and marking it paid
   audit     the line-wide fairness checks
   demo      demo history
   api       the HTTP router
@@ -20,20 +22,22 @@ Importing the package registers the ot_requests schema and the receipt templates
 """
 from __future__ import annotations
 
+from . import disputes as disputes
 from . import receipts as receipts
 from .api import router
 from .audit import FairnessCheck, FairnessReport, fairness, gini
 from .demo import OPENING, PAST, WEEK_OT, seed_demo
+from .disputes import Case
 from .limits import CapStatus, cap_status, fatigue, quarter_used
 from .overtime import Consent, OTRequest, consent, create_requests, list_requests
-from .payslips import Check, Payslip, payslip, run
+from .payslips import Check, Payslip, mark_paid, payslip, run
 from .rules import RULES, Rules, hourly_rate
 from .shifts import Shift, hours
 from .wages import TodayPay, pf_deducted, today
 
 __all__ = [
-    "OPENING", "PAST", "RULES", "WEEK_OT", "CapStatus", "Check", "Consent", "FairnessCheck", "FairnessReport",
+    "OPENING", "PAST", "RULES", "WEEK_OT", "CapStatus", "Case", "Check", "Consent", "FairnessCheck", "FairnessReport",
     "OTRequest", "Payslip", "Rules", "Shift", "TodayPay", "cap_status", "consent", "create_requests", "fairness",
-    "fatigue", "gini", "hourly_rate", "hours", "list_requests", "payslip", "pf_deducted", "quarter_used",
+    "fatigue", "gini", "hourly_rate", "hours", "list_requests", "mark_paid", "payslip", "pf_deducted", "quarter_used",
     "router", "run", "seed_demo", "today",
 ]

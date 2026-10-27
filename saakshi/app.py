@@ -9,7 +9,7 @@ from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import RequestResponseEndpoint
 
-from . import auth, config, console, core_api, edge, errors, passport, pay, seed, state, voice
+from . import auth, config, console, core_api, edge, errors, passport, pay, safety, seed, state, voice
 
 
 @asynccontextmanager
@@ -47,7 +47,7 @@ async def security_headers(request: Request, call_next: RequestResponseEndpoint)
     return resp
 
 
-for m in (auth, core_api, pay, voice, passport, edge, console):
+for m in (auth, core_api, pay, voice, passport, edge, safety, console):
     app.include_router(m.router)
 
 for name in ("worker", "console", "verify", "shared", "landing"):  # landing: assets of web/index.html

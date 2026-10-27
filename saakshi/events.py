@@ -48,6 +48,22 @@ PAY_RUN: Final = "pay.run"
 PF_DEPOSIT: Final = "pf.deposit"
 """Provident-fund deposit for a period (per contractor or direct), matched against PF deducted from wages."""
 
+PAY_PAID: Final = "pay.paid"
+"""Wages for a period were paid out to a worker after the pay run (payload: `period, net`)."""
+
+PAY_ADJUSTMENT: Final = "pay.adjustment"
+"""A correction added to a worker's pay for a period, e.g. from a resolved dispute (`period, amount, label, case_id`)."""
+
+# --- Pay disputes -------------------------------------------------------------------------------
+DISPUTE_OPENED: Final = "dispute.opened"
+"""Worker questioned a payslip line (payload: `case_id, period, line, amount_questioned, note, due, by`)."""
+
+DISPUTE_ASSIGNED: Final = "dispute.assigned"
+"""A pay dispute was given to an owner to resolve (payload: `case_id, owner, by`)."""
+
+DISPUTE_RESOLVED: Final = "dispute.resolved"
+"""A pay dispute was closed as corrected or explained (payload: `case_id, period, outcome, note, correction_amount, by`)."""
+
 # --- Skills passport ----------------------------------------------------------------------------
 CREDENTIAL_ISSUED: Final = "credential.issued"
 """A signed skill credential was issued to a worker."""
@@ -66,9 +82,21 @@ VOICE_REPORT: Final = "voice.report"
 VOICE_RESPONSE: Final = "voice.response"
 """Management's public answer to a published voice theme, posted on the notice board."""
 
+# --- Safety reports -----------------------------------------------------------------------------
+SAFETY_REPORTED: Final = "safety.reported"
+"""Worker raised a hazard or stop-work call from the phone (payload: `report_id, kind, zone, note, client_id, ack_due`)."""
+
+SAFETY_ACKNOWLEDGED: Final = "safety.acknowledged"
+"""Supervisor or HR acknowledged a safety report (payload: `report_id, by, by_role, by_name, note`)."""
+
+SAFETY_RESOLVED: Final = "safety.resolved"
+"""Supervisor or HR closed a safety report with what was done (payload: `report_id, by, by_role, by_name, note`)."""
+
 ALL: Final[frozenset[str]] = frozenset({
+    SAFETY_REPORTED, SAFETY_ACKNOWLEDGED, SAFETY_RESOLVED,
     PUNCH_IN, PUNCH_OUT, PUNCH_CORRECTION, ATTENDANCE_OPENING_BALANCE, PRODUCTION_COUNT, ACCESS_LOOKUP,
-    OT_REQUEST, OT_CAP_CHECK, OT_CONSENT, OT_OPENING_BALANCE, PAY_RUN, PF_DEPOSIT,
+    OT_REQUEST, OT_CAP_CHECK, OT_CONSENT, OT_OPENING_BALANCE, PAY_RUN, PF_DEPOSIT, PAY_PAID, PAY_ADJUSTMENT,
+    DISPUTE_OPENED, DISPUTE_ASSIGNED, DISPUTE_RESOLVED,
     CREDENTIAL_ISSUED, CREDENTIAL_REVOKED, EDGE_EVENT, VOICE_REPORT, VOICE_RESPONSE,
 })
 """Every known event type, for validation and tests."""

@@ -69,7 +69,7 @@ def actor(method: str, path: str, body) -> tuple[str, str | None] | None:
     """(role, worker id) that performs this call in the story, or None for a public call."""
     if path.startswith(PUBLIC_PATHS) and not path.endswith("/revoke") and not (method == "GET" and path == "/api/edge/events"):
         return None
-    if path.startswith(HR_PATHS):
+    if path.startswith(HR_PATHS) or (path.startswith("/api/disputes/") and path.endswith("/resolve")):
         return ("hr", None)
     parts = path.split("/")
     if path.startswith("/api/workers/") and len(parts) > 4 and parts[4] in ("receipts", "access-log"):
@@ -261,7 +261,29 @@ def main():
         say(f"   verify link: /verify/#{b64[:40]}…")
 
     # 7 ---------------------------------------------------------------------
-    step(7, "Close on the SDG 8 scorecard", a.pause)
+    step(7, "Meena says 'this amount looks wrong'; HR resolves it; both dashboards show the same history", a.pause)
+    case = ok(http.post("/api/pay/W001/disputes", json={"period": "2026-10", "line": "Overtime (2×)", "amount_questioned": 250,
+                                                       "note": "Overtime on 26 Oct is missing"}))
+    say(f"   📱 Meena opens case {case['case_id']}: ₹250 on Overtime (2×) · owner {case['owner']} · reply due {case['due']}")
+    slip = ok(http.get("/api/pay/W001/payslip", params={"period": "2026-10"}))
+    check(slip.get("status") == "under_review", "her payslip shows 'Under review' while the case is open")
+    queue = ok(http.get("/api/disputes", params={"status": "open"}))
+    check(any(c["case_id"] == case["case_id"] for c in queue), "the case appears in the employer's queue")
+    ok(http.post(f"/api/disputes/{case['case_id']}/assign", json={"owner": "HR · Priya"}))
+    done = ok(http.post(f"/api/disputes/{case['case_id']}/resolve",
+                        json={"outcome": "corrected", "note": "Overtime on 26 Oct added", "correction_amount": 250}))
+    for t in done["timeline"]:
+        say(f"   {t['ts'][11:16]}  {t['kind']:9} {t['by']:22} {t['text'][:60]}  #{t['seq']}")
+    mine = ok(http.get("/api/pay/W001/disputes"))
+    same = next(c for c in mine if c["case_id"] == case["case_id"])
+    check([t["seq"] for t in same["timeline"]] == [t["seq"] for t in done["timeline"]] and len(done["timeline"]) == 3,
+          "worker and employer see the same three signed steps")
+    slip = ok(http.get("/api/pay/W001/payslip", params={"period": "2026-10"}))
+    check(any(str(line.get("label", "")).startswith("Correction (case") for line in slip["lines"]),
+          "the correction appears as its own line on her payslip")
+
+    # 8 ---------------------------------------------------------------------
+    step(8, "Close on the SDG 8 scorecard", a.pause)
     sc = ok(http.get("/api/sdg8/scorecard"))
     for t in sc["targets"]:
         val = t.get("value")

@@ -70,6 +70,13 @@ POLICY: list[tuple[str, str, tuple[str, ...]]] = [
     ("GET", r"/pay/fairness", ("hr", "auditor")),
     ("POST", r"/pay/run", ("hr",)),
     ("GET", rf"/pay/{W}/(today|payslip)", ("self", "hr")),
+    # Pay disputes: the worker opens, HR and supervisors work the case, everyone sees one timeline.
+    ("POST", rf"/pay/{W}/disputes", ("self",)),
+    ("GET", rf"/pay/{W}/disputes", ("self", "hr", "supervisor", "auditor")),
+    ("GET", r"/disputes", ("hr", "supervisor", "auditor")),
+    ("POST", r"/disputes/[^/]+/assign", ("hr", "supervisor")),
+    ("POST", r"/disputes/[^/]+/resolve", ("hr",)),
+    ("POST", r"/pay/run/[^/]+/paid", ("hr",)),
     ("GET", rf"/hours/{W}", ("self", "supervisor", "hr")),
     # Overtime.
     ("GET", r"/ot/cap", ANY),
@@ -90,6 +97,11 @@ POLICY: list[tuple[str, str, tuple[str, ...]]] = [
     ("GET", rf"/passport/{W}", ("self", "supervisor", "hr")),
     # Employer console, edge, ledger.
     ("GET", r"/console/overview", EMPLOYER),
+    ("GET", r"/console/queue", EMPLOYER),
+    # Safety reports: the reporting worker comes from the token; acknowledging needs supervisor or HR.
+    ("POST", r"/safety/reports", ("worker",)),
+    ("GET", r"/safety/reports", ("query_self", "supervisor", "hr", "auditor")),
+    ("POST", r"/safety/reports/[^/]+/(ack|resolve)", ("supervisor", "hr")),
     ("GET", r"/sdg8/scorecard", EMPLOYER),
     ("GET", r"/edge/(events|summary|cameras)", EMPLOYER),
     ("GET", r"/ledger/verify", ANY),                 # workers must be able to verify the chain

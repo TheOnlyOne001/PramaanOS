@@ -10,9 +10,10 @@ from fastapi import APIRouter
 
 from .. import config
 from .audit import FairnessReport, fairness
+from .disputes import Case, DisputeAssign, DisputeOpen, DisputeResolve, assign, list_cases, open_case, resolve, worker_cases
 from .limits import CapStatus, cap_status
 from .overtime import Consent, OTRequest, consent, create_requests, list_requests
-from .payslips import Payslip, payslip, run
+from .payslips import Payslip, mark_paid, payslip, run
 from .records import require_worker
 from .rules import DEMO_PERIOD, DEMO_PERIOD_START, RULES, Rules
 from .shifts import Shift, hours
@@ -80,3 +81,39 @@ def get_today(wid: str, day: str | None = None) -> TodayPay:
 def get_payslip(wid: str, period: str = DEMO_PERIOD) -> Payslip:
     """Return a worker's payslip for a YYYY-MM period."""
     return payslip(wid, period)
+
+
+@router.post("/pay/run/{period}/paid", response_model=None)
+def post_paid(period: str) -> dict[str, Any]:
+    """Record a run period's wages as paid (one pay.paid event per worker paid)."""
+    return mark_paid(period)
+
+
+@router.post("/pay/{wid}/disputes", response_model=None)
+def post_dispute(wid: str, body: DisputeOpen) -> Case:
+    """Open a pay dispute on one of the worker's payslip lines."""
+    return open_case(wid, body)
+
+
+@router.get("/pay/{wid}/disputes", response_model=None)
+def get_worker_disputes(wid: str) -> list[Case]:
+    """Return a worker's pay disputes, newest first."""
+    return worker_cases(wid)
+
+
+@router.get("/disputes", response_model=None)
+def get_disputes(status: str | None = None) -> list[Case]:
+    """Return every pay dispute (with worker_name), newest first, optionally filtered by status."""
+    return list_cases(status)
+
+
+@router.post("/disputes/{case_id}/assign", response_model=None)
+def post_assign(case_id: str, body: DisputeAssign) -> Case:
+    """Give a pay dispute to an owner."""
+    return assign(case_id, body)
+
+
+@router.post("/disputes/{case_id}/resolve", response_model=None)
+def post_resolve(case_id: str, body: DisputeResolve) -> Case:
+    """Resolve a pay dispute as corrected (with a pay adjustment) or explained."""
+    return resolve(case_id, body)
