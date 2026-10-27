@@ -1,13 +1,24 @@
 """Core HTTP API: site, workers, punches, ledger integrity, receipts, access log, demo tools."""
 from __future__ import annotations
 
+from typing import Annotated
+
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, StringConstraints
 
 from . import config, state
 from .ledger import now_ts
 
 router = APIRouter(prefix="/api")
+
+WorkerId = Annotated[str, StringConstraints(pattern=r"^[A-Z]\d{3}$")]
+Ts = Annotated[str, StringConstraints(pattern=r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$")]
+Text = Annotated[str, StringConstraints(max_length=200)]
+
+
+def _demo_only():
+    if not config.DEMO_MODE:
+        raise HTTPException(404, "demo tools are disabled (SAAKSHI_DEMO=0)")
 
 
 def _worker(wid: str) -> dict:
@@ -39,10 +50,10 @@ def worker(wid: str):
 # --- Proof of Hours: punches ------------------------------------------------
 
 class Punch(BaseModel):
-    worker_id: str
+    worker_id: WorkerId
     kind: str  # "in" | "out"
-    ts: str | None = None
-    device: str = "bio-gate-1"
+    ts: Ts | None = None
+    device: Text = "bio-gate-1"
 
 
 @router.post("/punch")
@@ -55,12 +66,12 @@ def punch(p: Punch):
 
 
 class Correction(BaseModel):
-    worker_id: str
-    corrects_seq: int
-    new_ts: str
-    reason: str
-    approver: str
-    ts: str | None = None
+    worker_id: WorkerId
+    corrects_seq: int = Field(ge=1)
+    new_ts: Ts
+    reason: Text
+    approver: Text
+    ts: Ts | None = None
 
 
 @router.post("/punch/correction")
@@ -80,6 +91,7 @@ def punch_correction(c: Correction):
 @router.get("/ledger/events")
 def ledger_events(worker_id: str | None = None, type: str | None = None, type_prefix: str | None = None,
                   day: str | None = None, since_seq: int | None = None, limit: int = 200, desc: bool = True):
+    limit = max(1, min(limit, 1000))
     return state.get().ledger.events(worker_id=worker_id, type=type, type_prefix=type_prefix, day=day,
                                      since_seq=since_seq, limit=limit, desc=desc)
 
@@ -125,6 +137,7 @@ def ledger_publish(day: str | None = None):
 @router.get("/workers/{wid}/receipts")
 def receipts(wid: str, limit: int = 100):
     _worker(wid)
+    limit = max(1, min(limit, 500))
     rows = state.get().conn.execute(
         "SELECT * FROM wallet_receipts WHERE worker_id=? ORDER BY seq DESC LIMIT ?", (wid, limit)).fetchall()
     return [dict(r) for r in rows]
@@ -136,7 +149,7 @@ class ReceiptRef(BaseModel):
 
 
 class ReceiptCheck(BaseModel):
-    receipts: list[ReceiptRef] | None = None
+    receipts: list[ReceiptRef] | None = Field(default=None, max_length=5000)
 
 
 @router.post("/workers/{wid}/receipts/check")
@@ -189,10 +202,10 @@ def log_access(worker_id: str, viewer: str, reason: str, what: str = "record", v
 
 
 class Lookup(BaseModel):
-    viewer: str
-    reason: str
-    viewer_role: str = "employer"
-    what: str = "record"
+    viewer: Text
+    reason: Text
+    viewer_role: Text = "employer"
+    what: Text = "record"
 
 
 @router.post("/workers/{wid}/lookup")
@@ -218,6 +231,7 @@ def access_log(wid: str):
 
 @router.post("/demo/reset")
 def demo_reset():
+    _demo_only()
     from . import seed
     st = state.reset(wipe=True)
     seed.seed_all(st)
@@ -226,13 +240,14 @@ def demo_reset():
 
 class Tamper(BaseModel):
     seq: int | None = None
-    worker_id: str = "W001"
-    new_ts: str | None = None
+    worker_id: WorkerId = "W001"
+    new_ts: Ts | None = None
     mode: str = "naive"  # "naive": edit the row. "rehash": edit and recompute its hash too.
 
 
 @router.post("/demo/tamper")
 def demo_tamper(t: Tamper):
     """Simulates someone with database access editing a punch-out, bypassing the app."""
+    _demo_only()
     from .tamper import tamper_punch_out
     return tamper_punch_out(state.get().conn, worker_id=t.worker_id, seq=t.seq, new_ts=t.new_ts, mode=t.mode)

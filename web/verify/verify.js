@@ -35,7 +35,8 @@
     }).join(',') + '}';
   }
 
-  function utf8(s) { return new TextEncoder().encode(s); }
+  // copy into this realm's Uint8Array (tweetnacl checks instanceof)
+  function utf8(s) { return new Uint8Array(new TextEncoder().encode(s)); }
 
   function b64urlToBytes(s) {
     s = s.replace(/-/g, '+').replace(/_/g, '/').replace(/\s+/g, '');

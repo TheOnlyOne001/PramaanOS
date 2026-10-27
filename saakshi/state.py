@@ -4,6 +4,8 @@ Use `state.get()` anywhere. Tests call `state.reset(path)` for a fresh DB.
 """
 from __future__ import annotations
 
+import contextlib
+import sqlite3
 import threading
 
 from . import config, db
@@ -21,10 +23,8 @@ class State:
         self.ledger = Ledger(self.conn, self.keys, self.lock)
 
     def close(self):
-        try:
+        with contextlib.suppress(sqlite3.Error):
             self.conn.close()
-        except Exception:
-            pass
 
 
 _state: State | None = None

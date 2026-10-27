@@ -298,12 +298,16 @@ def issue_skill(wid: str, skill: str, ts: str | None = None) -> dict:
 
 
 def issue_safety(wid: str, cred: str = "machine_guarding_induction", valid_from: str | None = None,
-                 valid_until: str | None = None) -> dict:
-    """Expiring safety credential (e.g. machine guarding induction)."""
+                 valid_until: str | None = None, ts: str | None = None) -> dict:
+    """Expiring safety credential (e.g. machine guarding induction).
+
+    valid_from is the training date; ts is when it was recorded (e.g. imported from the training register).
+    """
     st = state.get()
     w = _worker(wid)
     spec = SAFETY_CREDENTIALS[cred]
-    ts = valid_from or now_ts()
+    rec_ts = ts or now_ts()
+    ts = valid_from or rec_ts
     valid_until = valid_until or (date.fromisoformat(ts[:10]) + timedelta(days=spec["valid_days"])).isoformat()
     iss = issuer()
     with st.lock:
@@ -321,8 +325,8 @@ def issue_safety(wid: str, cred: str = "machine_guarding_induction", valid_from:
             },
             "credentialStatus": _status_entry(idx),
         }
-        _sign(vc, ts)
-        ev = _store_and_announce(st, wid, vc, "safety", cred, None, ts, valid_until, idx)
+        _sign(vc, rec_ts)
+        ev = _store_and_announce(st, wid, vc, "safety", cred, None, rec_ts, valid_until, idx)
     return {"credential": vc, "event": ev}
 
 
@@ -714,4 +718,5 @@ def seed_demo(st) -> None:
     for r in rows:
         until = _INDUCTION_EXPIRY.get(r["id"], "2027-04-15")
         vf = (date.fromisoformat(until) - timedelta(days=180)).isoformat()
-        issue_safety(r["id"], "machine_guarding_induction", valid_from=f"{vf}T10:00:00{config.TZ}", valid_until=until)
+        issue_safety(r["id"], "machine_guarding_induction", valid_from=f"{vf}T10:00:00{config.TZ}",
+                     valid_until=until, ts=f"{SEED_DAYS[-1]}T18:10:00{config.TZ}")

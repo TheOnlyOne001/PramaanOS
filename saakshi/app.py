@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -19,6 +19,26 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Saakshi", description="Shared, tamper-evident work records", lifespan=lifespan)
+# Strict browser policy: no inline or third-party scripts, no framing, no sniffing.
+CSP = ("default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+       "font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; "
+       "media-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'")
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    resp = await call_next(request)
+    if not request.url.path.startswith(("/docs", "/redoc", "/openapi.json")):
+        resp.headers["Content-Security-Policy"] = CSP
+    resp.headers["X-Content-Type-Options"] = "nosniff"
+    resp.headers["X-Frame-Options"] = "DENY"
+    resp.headers["Referrer-Policy"] = "no-referrer"
+    resp.headers["Permissions-Policy"] = "camera=(), geolocation=(), microphone=(self)"
+    if request.url.path.startswith("/api/"):
+        resp.headers["Cache-Control"] = "no-store"
+    return resp
+
+
 for m in (core_api, pay, voice, passport, edge, console):
     app.include_router(m.router)
 
@@ -30,7 +50,7 @@ for name in ("worker", "console", "verify", "shared"):
 
 @app.get("/", response_class=HTMLResponse)
 def index():
-    return """<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
+    return """<!doctype html><html lang=en><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
 <title>Saakshi</title><style>body{font:16px system-ui;max-width:560px;margin:40px auto;padding:0 16px}
 a{display:block;padding:14px;margin:10px 0;border:1px solid #ccc;border-radius:10px;text-decoration:none}</style>
 <h1>Saakshi · சாட்சி</h1><p>Shared, tamper-evident work records.</p>

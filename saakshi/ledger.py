@@ -15,7 +15,7 @@ import threading
 from datetime import datetime, timezone
 
 from . import i18n
-from .config import SITE_ID, TZ
+from .config import SITE_ID
 from .crypto import KeyStore, canonical, merkle_proof, merkle_root, sha256_hex, verify_sig
 
 GENESIS = "0" * 64
@@ -104,24 +104,18 @@ class Ledger:
     def events(self, worker_id: str | None = None, type: str | None = None, type_prefix: str | None = None,
                day: str | None = None, day_from: str | None = None, day_to: str | None = None,
                since_seq: int | None = None, limit: int | None = None, desc: bool = False) -> list[dict]:
+        filters = [("worker_id=?", worker_id), ("type=?", type),
+                   ("type LIKE ?", None if type_prefix is None else type_prefix + "%"),
+                   ("day=?", day), ("day>=?", day_from), ("day<=?", day_to), ("seq>?", since_seq)]
         q, args = ["SELECT * FROM events WHERE 1=1"], []
-        if worker_id is not None:
-            q.append("AND worker_id=?"); args.append(worker_id)
-        if type is not None:
-            q.append("AND type=?"); args.append(type)
-        if type_prefix is not None:
-            q.append("AND type LIKE ?"); args.append(type_prefix + "%")
-        if day is not None:
-            q.append("AND day=?"); args.append(day)
-        if day_from is not None:
-            q.append("AND day>=?"); args.append(day_from)
-        if day_to is not None:
-            q.append("AND day<=?"); args.append(day_to)
-        if since_seq is not None:
-            q.append("AND seq>?"); args.append(since_seq)
+        for clause, value in filters:
+            if value is not None:
+                q.append("AND " + clause)
+                args.append(value)
         q.append("ORDER BY seq DESC" if desc else "ORDER BY seq ASC")
         if limit:
-            q.append("LIMIT ?"); args.append(int(limit))
+            q.append("LIMIT ?")
+            args.append(int(limit))
         return [_row_to_event(r) for r in self.conn.execute(" ".join(q), args).fetchall()]
 
     def count(self) -> int:

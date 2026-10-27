@@ -249,7 +249,7 @@ def seed_demo(st) -> None:
         ev(f"{d}T{h:02d}:00:00", "cam-04", "Line 4", "ppe_compliance_rate", value=l4)
         ev(f"{d}T{h:02d}:00:00", "cam-07", "Press zone", "ppe_compliance_rate", value=pz)
     ev(f"{d}T11:20:00", "cam-04", "Line 4", "near_miss", count=1)
-    ev(f"{d}T12:30:00", "cam-09", "Canteen", "queue_length", count=14)
+    ev(f"{d}T12:30:00", "cam-09", "Canteen", "queue_length", count=8)
     ev(f"{d}T13:00:00", "cam-07", "Press zone", "heat_wbgt", value=31.0)
     ev(f"{d}T14:45:00", "cam-11", "Water point", "queue_length", count=7)
     ev(f"{d}T15:00:00", "cam-11", "Water point", "queue_length", count=11)
