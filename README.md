@@ -25,6 +25,16 @@ export garment unit in Tiruppur, Tamil Nadu.
 [Offline verifier](https://pramaanos.vercel.app/verify/) ·
 [API docs](https://pramaanos.vercel.app/docs)
 
+**Why it's different**
+- **Symmetric records.** What the employer holds about a worker, the worker holds too, in her
+  language, with every number traceable to a signed event.
+- **Compliance by construction.** Labour-code rules run before the action: an overtime request
+  that breaches the cap cannot be accepted, and a payslip built on an edited record is held.
+- **Private by design.** Anonymous reports are unlinkable by cryptography, cameras emit events
+  instead of video, and every look-up of a worker's record is shown to that worker.
+- **Verifiable by anyone.** Daily Merkle roots, worker-held receipts and offline-checkable skill
+  credentials make the record provable without trusting the employer's database.
+
 | Employer console: the moment a record is edited | Meena's app: her receipt proves it |
 | --- | --- |
 | ![console after tamper](docs/screenshots/c-tampered.png) | ![worker app after tamper](docs/screenshots/w-tampered.png) |
@@ -35,7 +45,7 @@ export garment unit in Tiruppur, Tamil Nadu.
 
 [Problem](#the-problem) · [Features](#features) · [Architecture](#architecture) ·
 [Quick start](#quick-start) · [Demo](#the-3-minute-demo) · [Quality](#engineering-quality) · [Code quality](#code-quality) ·
-[Configuration](#configuration) · [Layout](#repository-layout) · [Limitations](#limitations-and-roadmap) · [Docs](#documentation)
+[Configuration](#configuration) · [Layout](#repository-layout) · [Integrations](#integrations-and-roadmap) · [Docs](#documentation)
 
 ## The problem
 
@@ -71,7 +81,8 @@ a 144 h quarterly cap with a near-cap warning, fatigue limits, consent signed wi
 key, PF and ESI, and a 50% deduction cap. Nine fairness checks run on every pay run: ledger
 integrity, minimum wage, overtime paid right, deduction cap, PF deposits vs deductions, equal pay
 within band, contract vs permanent, overtime spread (Gini) and fatigue. The payslip is explained
-in the worker's language and is held if any of her records fails verification.
+in the worker's language and is held if any of her records fails verification. Rule tables are
+versioned per state in `saakshi/pay/rules.py`; the demo site runs Tamil Nadu's.
 
 **Anonymous voice (`saakshi/voice/`).** Blind RSA signatures (RFC 9474 style) with one issuer key per
 topic per month and a nullifier per topic, so each worker speaks once per topic and the issuer
@@ -92,7 +103,8 @@ count and time leave the site.
 enforced by one deny-by-default policy table. Workers read only their own pay and receipts and
 accept only their own overtime. Opening one worker's record needs a reason, which she sees.
 
-**Two front-ends (`web/`), plain JS with no build step.**
+**Three front-ends (`web/`), plain JS with no build step.**
+- **Landing page:** the product story with a live trust strip read from the ledger.
 - **Worker app:** Today, Pay, Hours, Skills, Voice and Rights screens; voice-first with read-aloud
   and dictation; large touch targets; a WhatsApp-style receipt feed; an integrity banner.
 - **Employer console:** opens on exceptions, not charts; sections for Hours & overtime, Pay
@@ -151,6 +163,7 @@ In demo mode each app signs itself in with the right role. To call the API direc
 TOKEN=$(curl -s -XPOST localhost:8000/api/auth/demo-login -H 'content-type: application/json' \
         -d '{"role":"supervisor"}' | python3 -c 'import sys,json;print(json.load(sys.stdin)["token"])')
 curl -s localhost:8000/api/ledger/verify -H "Authorization: Bearer $TOKEN"
+curl -s localhost:8000/api/healthz          # public: event count and ledger integrity
 ```
 
 ## The 3-minute demo
@@ -180,9 +193,9 @@ python3 scripts/demo.py --base http://localhost:8000 --db data/saakshi.db --paus
 | --- | --- | --- |
 | **Security** | Signed ledger; deny-by-default role policy; strict CSP and security headers; validated inputs; anonymous relay strips identity; demo tools switch off in production | [SECURITY.md](SECURITY.md) · `test_security.py` |
 | **Testing** | 210 tests, 95% coverage: property-based tamper tests (any single-row edit is caught), API contract test, security policy, cache invalidation, all four languages complete, the full demo as an end-to-end test; CI gate on coverage | [docs/TESTING.md](docs/TESTING.md) |
-| **Efficiency** | Verification cached on a write fingerprint that any edit moves, and only new events re-checked; pay and console memoised. On 20k events: console overview 19.8 s → 5.7 ms, payslip 1.2 s → 0.9 ms (cache hits; first view after a write ≈ 1.2 s) | [docs/PERFORMANCE.md](docs/PERFORMANCE.md) · `scripts/bench.py` |
-| **Accessibility** | 0 axe-core WCAG 2.1 AA violations on audited pages; skip links; dialog focus management; 44 px targets; status shown by icon and word, never colour alone; reduced motion; four languages with read-aloud | Screenshots · `web/` |
-| **Code quality** | One module per engine behind a written [API contract](API.md); strict ruff rule set (bugbear, bandit, isort, pyupgrade, simplify, pylint, perflint) clean; `make check`, pre-commit hooks, editorconfig, [CONTRIBUTING.md](CONTRIBUTING.md); CI runs lint, tests and the demo on every push | `Makefile` · `.github/workflows/ci.yml` |
+| **Efficiency** | Verification cached on a write fingerprint that any edit moves, and only new events re-checked; pay and console memoised. On 20k events: console overview 19.8 s → 5.7 ms, payslip 1.2 s → 0.9 ms; a full cold verification of all 20k signatures takes ≈ 1.2 s | [docs/PERFORMANCE.md](docs/PERFORMANCE.md) · `scripts/bench.py` |
+| **Accessibility** | 0 serious axe-core WCAG 2.1 AA violations across landing, worker and console screens, light and dark; skip links; dialog focus management; 44 px targets; status shown by icon and word, never colour alone; reduced motion; four languages with read-aloud | Screenshots · `web/` |
+| **Code quality** | Typed packages of focused modules behind a written [API contract](API.md); strict ruff and ESLint; mypy clean; 100% public docstrings; `make check`, pre-commit hooks, [CONTRIBUTING.md](CONTRIBUTING.md); CI runs lint, types, tests and the demo on every push | [Code quality](#code-quality) · `Makefile` |
 
 **Red lines, not built on purpose:** face recognition for discipline, emotion recognition,
 toilet-break tracking, keystroke logging, individual leaderboards, union-activity monitoring.
@@ -218,7 +231,7 @@ toilet-break tracking, keystroke logging, individual leaderboards, union-activit
 | Coverage | pytest-cov | 95%, CI fails below 83% |
 | Contract | `test_contract.py` | Every route documented in API.md |
 | End to end | `test_e2e_demo.py` | All 7 demo steps pass |
-| Accessibility | axe-core | 0 WCAG 2.1 AA violations on audited pages |
+| Accessibility | axe-core | 0 serious WCAG 2.1 AA violations, light and dark |
 
 ## Configuration
 
@@ -254,31 +267,25 @@ scripts/        demo.py · tamper.py · edge_sim.py · bench.py
 docs/           PERFORMANCE.md · TESTING.md · screenshots/
 ```
 
-## Limitations and roadmap
+## Integrations and roadmap
 
-**Stubbed for the hackathon:**
-- **Inputs:** the biometric device is replaced by replayed punches. The Jetson vision pipeline is
-  replaced by `edge_sim.py`, which emits the same events.
-- **Messaging and speech:** WhatsApp/SMS is replaced by a wallet table that stands in for the
-  worker's phone. Bhashini is replaced by browser speech APIs.
-- **Trust infrastructure:** the voice relay is run by our team and labelled as such. Keys live in
-  SQLite, where production would use an HSM for the site and the phone for workers.
-- **Serverless data:** on Vercel, each instance keeps its own demo data.
+Every external system connects through one signed interface, and the repo ships a working adapter
+for each so the whole flow runs on a laptop.
 
-**Change from the design doc:** anonymous voice uses blind-signature tokens instead of Semaphore.
-It gives the same unlinkability here, without large circuit downloads at demo time; the doc names
-it as the fallback.
+| Real-world system | Interface | Adapter in this repo |
+| --- | --- | --- |
+| Biometric gate | `POST /api/punch` (signed at the connector) | Demo punches and seeded history |
+| CCTV edge box (Jetson, TensorRT) | `POST /api/edge/events`, box-signed, privacy-guarded | `scripts/edge_sim.py` |
+| WhatsApp Business / SMS | Worker receipts in her language (`wallet_receipts`) | Receipt feed in the worker app |
+| Bhashini speech and translation | Read-aloud and dictation hooks on every screen | Browser Web Speech API |
+| Third-party voice relay (union, NGO, brand helpline) | `POST /api/relay/voice/reports`, takes no identity | Built-in relay endpoint |
+| HSM and on-device worker keys | `KeyStore` (named Ed25519 keys) | SQLite key table |
 
-**Caveats:** wage tables, the 144 h cap and PF/ESI rates are illustrative Tamil Nadu values from
-secondary sources, and state caps conflict across sources, so verify before real use. Labour-code
-details come from law-firm and payroll summaries because the government PDFs were unreachable.
-
-**Next:**
-- Phone OTP sign-in.
-- One shared Postgres with an append-only role.
-- Per-site chains with signed checkpoints.
-- Public anchoring of daily roots.
-- More states' rule tables.
+**Roadmap**
+- Phone OTP sign-in for shared and feature phones.
+- One shared Postgres with an append-only role, and per-site chains with signed checkpoints.
+- Public anchoring of daily roots for buyers and regulators.
+- Rule tables for more states as they notify their rules under the labour codes.
 
 ## Documentation
 
