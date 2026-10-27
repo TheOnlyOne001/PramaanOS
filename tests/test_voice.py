@@ -33,7 +33,7 @@ def test_unlinkable(client, st):
     """Perfect blindness: with the issuer's private key, every pairing of issuance and redemption is consistent."""
     topic = "water"
     k = voice.key(MONTH, topic)
-    n, e, d = k["n"], k["e"], k["d"]
+    n, e, _d = k["n"], k["e"], k["d"]
     issued, redeemed = [], []
     for wid in ("W001", "W002"):
         m = secrets.token_bytes(32)
@@ -42,7 +42,7 @@ def test_unlinkable(client, st):
         assert res.status_code == 200, res.text
         issued.append((wid, b, int(res.json()["signatures"][topic], 16)))
         redeemed.append((m, unblind(int(res.json()["signatures"][topic], 16), r, n)))
-    for wid, b, s_blind in issued:
+    for _wid, b, s_blind in issued:
         for m, s in redeemed:
             r_prime = (s_blind * pow(s, -1, n)) % n          # the blinding factor this pairing would imply
             assert math.gcd(r_prime, n) == 1

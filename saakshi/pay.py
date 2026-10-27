@@ -21,7 +21,7 @@ RULES = {
     "state": "TN", "version": "TN-2026-10-illustrative", "note": "Illustrative values, verify before use",
     "min_wage_monthly": {"unskilled": 11800, "semi-skilled": 12400, "skilled": 13100, "highly-skilled": 13900},
     "days_payable": 26, "daily_hours": 8, "break_hours": 1, "ot_multiplier": 2, "ot_cap_quarter": 144,
-    "near_cap_pct": 0.9, "fatigue_week_ot": 14, "fatigue_streak_days": 6,
+    "near_cap_pct": 0.9, "fatigue_week_ot": 14, "fatigue_streak_days": 6, "ot_grace_hours": 0.75,
     "pf_rate": 0.12, "pf_wage_ceiling": 15000, "esi_rate": 0.0075, "esi_gross_ceiling": 21000, "deduction_cap": 0.5,
 }
 
@@ -269,7 +269,8 @@ def _deposits(period: str) -> dict:
             for e in state.get().ledger.events(type="pf.deposit") if e["payload"].get("period") == period}
 
 
-def payslip(wid: str, period: str = config.DEMO_DAY[:7]) -> dict:
+def payslip(wid: str, period: str = config.DEMO_DAY[:7], upto: str | None = None) -> dict:
+    """Pay for `period` from signed events; `upto` limits it to wages earned up to that day."""
     st = state.get()
     w = _worker(wid)
     band = w["skill_band"]
@@ -277,6 +278,8 @@ def payslip(wid: str, period: str = config.DEMO_DAY[:7]) -> dict:
     rate = hourly_rate(band)
     y, m = map(int, period.split("-"))
     last = (date(y + (m == 12), m % 12 + 1, 1) - timedelta(days=1)).isoformat()
+    if upto:
+        last = min(last, upto)
     shifts = [s for s in hours(wid, f"{period}-01", last) if s["complete"]]
     opening = _opening(wid, "attendance.opening_balance", "period", period)
     open_days = sum(e["payload"].get("days_worked", 0) for e in opening)
@@ -284,6 +287,9 @@ def payslip(wid: str, period: str = config.DEMO_DAY[:7]) -> dict:
     days = len(shifts) + open_days
     ot_h = _r(sum(s["ot_hours"] for s in shifts) + open_ot)
     uncons = _r(sum(s["unconsented_ot_hours"] for s in shifts))
+    # Minutes past the approved overtime (gate queues, finishing a bundle) are paid at 2x and shown;
+    # only a day beyond the grace counts as overtime without consent.
+    beyond = _r(sum(s["unconsented_ot_hours"] for s in shifts if s["unconsented_ot_hours"] > RULES["ot_grace_hours"]))
     basic = _r(min(monthly, monthly * days / RULES["days_payable"]))
     ot_pay = _r(ot_h * rate * RULES["ot_multiplier"])
     gross = _r(basic + ot_pay)
@@ -300,8 +306,9 @@ def payslip(wid: str, period: str = config.DEMO_DAY[:7]) -> dict:
         {"name": "Minimum wage", "ok": days == 0 or basic / max(days, 1) >= monthly / RULES["days_payable"] - 0.01,
          "detail": f"₹{_r(monthly / RULES['days_payable'])}/day minimum for {band}"},
         {"name": "Overtime paid at 2×", "ok": True, "detail": f"{ot_h:g} h × ₹{_r(rate)} × 2"},
-        {"name": "Overtime consent", "ok": uncons == 0,
-         "detail": "Every overtime hour has signed consent" if uncons == 0 else f"{uncons:g} h worked without signed consent (still paid at 2×)"},
+        {"name": "Overtime consent", "ok": beyond == 0,
+         "detail": ("Every overtime hour has signed consent" + (f"; {uncons:g} h past approval within the grace, paid at 2×" if uncons else ""))
+         if beyond == 0 else f"{beyond:g} h worked without signed consent (still paid at 2×)"},
         {"name": "Deduction cap", "ok": total_ded <= RULES["deduction_cap"] * gross, "detail": f"₹{total_ded} of ₹{gross} (max 50%)"},
     ]
     blocked = not checks[0]["ok"] or not checks[4]["ok"]
@@ -324,7 +331,7 @@ def payslip(wid: str, period: str = config.DEMO_DAY[:7]) -> dict:
                              "உங்கள் ரசீதுகள் உண்மையை நிரூபிக்கும்.",
                        "hi": "आपकी वेतन पर्ची रोकी गई है: हस्ताक्षर के बाद आपके घंटों का रिकॉर्ड बदला गया। आपकी रसीदें सच साबित करती हैं।",
                        "or": "ଆପଣଙ୍କ ଦରମା ପତ୍ର ରୋକାଯାଇଛି: ସ୍ୱାକ୍ଷର ପରେ ଆପଣଙ୍କ ସମୟ ରେକର୍ଡ ବଦଳାଯାଇଛି।"}[k]
-    return {"period": period, "worker": w, "days_worked": days,
+    return {"period": period, "worker": w, "days_worked": days, "ot_hours": ot_h, "unconsented_ot_hours": uncons,
             "lines": [{"label": "Basic + DA", "amount": basic, "formula": f"₹{monthly} × {days}/{RULES['days_payable']} days",
                        "evidence": evidence[:40]},
                       {"label": "Overtime (2×)", "amount": ot_pay, "formula": f"{ot_h:g} h × ₹{_r(rate)} × 2",
@@ -365,7 +372,9 @@ def fairness(period: str = config.DEMO_DAY[:7]) -> dict:
     by_con: dict[str, float] = {}
     for wid, s in slips.items():
         c = ws[wid]["contractor"] or "direct"
-        by_con[c] = by_con.get(c, 0) + s["deductions"][0]["amount"]
+        upto = deps.get(c, {}).get("wages_upto")
+        pf_upto = payslip(wid, period, upto=upto)["deductions"][0]["amount"] if upto else s["deductions"][0]["amount"]
+        by_con[c] = by_con.get(c, 0) + pf_upto
     detail = []
     for c, ded in by_con.items():
         dep = deps.get(c, {}).get("pf_deposited")
@@ -373,12 +382,29 @@ def fairness(period: str = config.DEMO_DAY[:7]) -> dict:
             short += [w for w in ws if (ws[w]["contractor"] or "direct") == c]
             detail.append(f"{c}: PF deducted ₹{_r(ded):,.0f}, deposited ₹{dep:,.0f} (EPFO ECR)")
     add("Deposits match deductions", short, "PF deposited equals PF deducted", "; ".join(detail))
-    rates: dict[tuple, dict[str, list]] = {}
-    for wid, s in slips.items():
-        rates.setdefault((ws[wid]["skill_band"],), {}).setdefault(ws[wid]["gender"], []).append(hourly_rate(ws[wid]["skill_band"]))
-    add("Equal pay", [], "No within-band gender gap above 5%", "")
-    add("Contract vs permanent", [], "Same band, same rate, whoever signs the contract", "")
-    ots = [sum(x["ot_hours"] for x in hours(wid, f"{period}-01", f"{period}-31")) for wid in ws]
+    def gaps(attr: str) -> tuple[list[str], list[str]]:
+        """Within each skill band, compare the mean daily base rate across groups of `attr`."""
+        groups: dict[str, dict[str, list[tuple[str, float]]]] = {}
+        for wid, sl in slips.items():
+            if sl["days_worked"]:
+                daily = sl["lines"][0]["amount"] / sl["days_worked"]
+                groups.setdefault(ws[wid]["skill_band"], {}).setdefault(ws[wid][attr] or "-", []).append((wid, daily))
+        flagged, notes = [], []
+        for band, by in groups.items():
+            if len(by) < 2:
+                continue
+            means = {g: sum(d for _, d in v) / len(v) for g, v in by.items()}
+            hi, lo = max(means.values()), min(means.values())
+            if hi and (hi - lo) / hi > 0.05:
+                flagged += [w for v in by.values() for w, _ in v]
+                notes.append(f"{band}: " + ", ".join(f"{g} ₹{m:,.0f}/day" for g, m in means.items()))
+        return flagged, notes
+
+    eq, eq_notes = gaps("gender")
+    add("Equal pay", eq, "No within-band gender gap above 5% in daily base pay", "; ".join(eq_notes) + " — review with written reasons")
+    cp, cp_notes = gaps("contract_type")
+    add("Contract vs permanent", cp, "Same band, same daily base pay, whoever signs the contract", "; ".join(cp_notes))
+    ots = [s["ot_hours"] for s in slips.values()]
     g = _gini(ots)
     checks.append({"name": "Overtime spread", "ok": g <= 0.4, "detail": f"Gini {g} across the line (review above 0.4)", "workers": []})
     tired = [w for w in ws if _fatigue(w, config.DEMO_DAY)]
@@ -463,7 +489,7 @@ PAST = ["2026-10-19", "2026-10-20", "2026-10-21", "2026-10-22", "2026-10-23", "2
 def seed_demo(st) -> None:
     L = st.ledger
     ws = _workers()
-    for i, wid in enumerate(ws):
+    for wid in ws:
         t0 = "2026-10-19T07:30:00+05:30"
         src = "Muster register 1–17 Oct, imported at install"
         L.append("attendance.opening_balance", {"period": "2026-10", "days_worked": 14, "ot_hours": OPENING[wid], "source": src},
@@ -478,8 +504,8 @@ def seed_demo(st) -> None:
                 rid = create_requests(body)["requests"][0]["request_id"]
                 consent(rid, Consent(decision="accept", channel="whatsapp", ts=f"{day}T16:40:00+05:30"))
             L.append("punch.in", {"device": "bio-gate-1"}, worker_id=wid, ts=f"{day}T07:{55 + i % 5:02d}:00+05:30", receipt=wid == "W001")
-            out_h = 17 + ot
-            L.append("punch.out", {"device": "bio-gate-1"}, worker_id=wid, ts=f"{day}T{out_h:02d}:{2 + i:02d}:00+05:30",
+            # 9 h span (8 h work + 1 h break) plus the approved overtime, to the minute.
+            L.append("punch.out", {"device": "bio-gate-1"}, worker_id=wid, ts=f"{day}T{16 + ot:02d}:{55 + i % 5:02d}:00+05:30",
                      receipt=wid == "W001")
     for i, wid in enumerate(ws):
         if wid != "W001":
@@ -487,8 +513,8 @@ def seed_demo(st) -> None:
     # PF deposits per employer for October: the agency deposited only ~70% of what it deducted.
     pf = {"direct": 0.0, "Sri Balaji Manpower": 0.0}
     for wid, w in ws.items():
-        pf[w["contractor"] or "direct"] += payslip(wid, "2026-10")["deductions"][0]["amount"]
+        pf[w["contractor"] or "direct"] += payslip(wid, "2026-10", upto="2026-10-26")["deductions"][0]["amount"]
     for c, amt in pf.items():
         dep = amt if c == "direct" else round(amt * 0.7, 2)
         L.append("pf.deposit", {"contractor": None if c == "direct" else c, "period": "2026-10", "pf_deposited": dep,
-                                "source": "EPFO ECR"}, ts="2026-10-26T18:00:00+05:30")
+                                "wages_upto": "2026-10-26", "source": "EPFO ECR"}, ts="2026-10-26T18:00:00+05:30")

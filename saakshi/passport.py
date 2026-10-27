@@ -702,7 +702,7 @@ def seed_demo(st) -> None:
     minutes = 420
     for wid, (op, plan) in _SEED_PLAN.items():
         sam = _SAM[op]
-        for i, (day, cell) in enumerate(zip(SEED_DAYS, plan)):
+        for i, (day, cell) in enumerate(zip(SEED_DAYS, plan, strict=False)):
             if cell is None:
                 continue
             eff, dr = cell

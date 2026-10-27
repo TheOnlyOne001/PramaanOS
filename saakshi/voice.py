@@ -207,7 +207,7 @@ def issue(worker_id: str, month: str, blinded: dict[str, str], st=None) -> dict:
         try:
             parsed[tid] = int(hx, 16)
         except (TypeError, ValueError):
-            raise HTTPException(422, f"blinded[{tid}] is not hex")
+            raise HTTPException(422, f"blinded[{tid}] is not hex") from None
     with s.lock:
         done = [r["topic"] for r in s.conn.execute(
             f"SELECT topic FROM voice_issuance WHERE worker_id=? AND month=? AND topic IN ({','.join('?' * len(parsed))})",
@@ -277,7 +277,7 @@ def submit_report(topic: str, month: str, token_hex: str, signature_hex: str, te
         m = bytes.fromhex(token_hex)
         sig = int(signature_hex, 16)
     except (TypeError, ValueError):
-        raise HTTPException(422, "token and signature must be hex")
+        raise HTTPException(422, "token and signature must be hex") from None
     if len(m) != 32:
         raise HTTPException(422, "token must be 32 bytes")
     k = key(month, topic, create=False, st=s)

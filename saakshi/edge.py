@@ -126,7 +126,7 @@ def ingest(body: dict) -> dict:
     try:
         privacy_check(body)
     except PrivacyViolation as e:
-        raise HTTPException(422, f"privacy guard: {e}")
+        raise HTTPException(422, f"privacy guard: {e}") from e
     extra = set(body) - _ALLOWED_FIELDS
     if extra:
         raise HTTPException(422, f"unknown fields: {sorted(extra)}")
@@ -141,7 +141,7 @@ def ingest(body: dict) -> dict:
     try:
         datetime.fromisoformat(body["ts"])
     except ValueError:
-        raise HTTPException(422, "'ts' must be ISO 8601")
+        raise HTTPException(422, "'ts' must be ISO 8601") from None
     if body["box_id"] not in BOX_KEYS:
         raise HTTPException(401, f"unknown edge box '{body['box_id']}'")
     st = state.get()
@@ -245,7 +245,7 @@ def seed_demo(st) -> None:
     ev("2026-10-24T14:00:00", "cam-07", "Press zone", "heat_wbgt", value=30.5)
     # today
     d = config.DEMO_DAY
-    for h, (l4, pz) in zip(range(9, 14), [(0.91, 0.84), (0.89, 0.8), (0.86, 0.77), (0.9, 0.79), (0.88, 0.75)]):
+    for h, (l4, pz) in zip(range(9, 14), [(0.91, 0.84), (0.89, 0.8), (0.86, 0.77), (0.9, 0.79), (0.88, 0.75)], strict=False):
         ev(f"{d}T{h:02d}:00:00", "cam-04", "Line 4", "ppe_compliance_rate", value=l4)
         ev(f"{d}T{h:02d}:00:00", "cam-07", "Press zone", "ppe_compliance_rate", value=pz)
     ev(f"{d}T11:20:00", "cam-04", "Line 4", "near_miss", count=1)
