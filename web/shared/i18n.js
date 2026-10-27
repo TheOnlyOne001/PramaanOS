@@ -13,6 +13,13 @@ export const NO_WORDS = ["இல்லை", "இல்ல", "வேண்டா�
 
 export const STRINGS = {
   en: {
+    my_copy: "My copy", my_copy_count: "{n} receipts saved on this phone",
+    check_local: "Checked against the copy on your phone", check_server: "Checked against the copy sent to you",
+    check_all_ok: "All {n} match the employer's record",
+    offline: "Offline — showing your saved copy", online_again: "Back online",
+    print_payslip: "Download / print payslip", payslip_doc: "Payslip",
+    worker_label: "Worker", site_label: "Site", period_label: "Period", printed_label: "Printed",
+    print_verify: "Every line traces to signed ledger events; verify at /api/ledger/verify",
     app_name: "Saakshi",
     tab_today: "Today", tab_pay: "Pay", tab_hours: "Hours", tab_skills: "Skills", tab_voice: "Voice", tab_rights: "Rights",
     hello: "Hello, {name}",
@@ -112,6 +119,13 @@ export const STRINGS = {
   },
 
   ta: {
+    my_copy: "என் நகல்", my_copy_count: "இந்தத் தொலைபேசியில் {n} ரசீதுகள் சேமிக்கப்பட்டுள்ளன",
+    check_local: "உங்கள் தொலைபேசியில் உள்ள நகலுடன் சரிபார்க்கப்பட்டது", check_server: "உங்களுக்கு அனுப்பப்பட்ட நகலுடன் சரிபார்க்கப்பட்டது",
+    check_all_ok: "{n} ரசீதுகளும் முதலாளியின் பதிவுடன் பொருந்துகின்றன",
+    offline: "இணைப்பு இல்லை — சேமித்த நகலைக் காட்டுகிறது", online_again: "மீண்டும் இணைப்பில்",
+    print_payslip: "சம்பளச் சீட்டைப் பதிவிறக்கு / அச்சிடு", payslip_doc: "சம்பளச் சீட்டு",
+    worker_label: "தொழிலாளர்", site_label: "இடம்", period_label: "காலம்", printed_label: "அச்சிட்டது",
+    print_verify: "ஒவ்வொரு வரியும் கையொப்பமிட்ட பதிவேட்டு நிகழ்வுகளுடன் இணைகிறது; /api/ledger/verify இல் சரிபார்க்கவும்",
     app_name: "சாட்சி",
     tab_today: "இன்று", tab_pay: "சம்பளம்", tab_hours: "நேரம்", tab_skills: "திறன்", tab_voice: "குரல்", tab_rights: "உரிமை",
     hello: "வணக்கம், {name}",
@@ -211,6 +225,13 @@ export const STRINGS = {
   },
 
   hi: {
+    my_copy: "मेरी कॉपी", my_copy_count: "इस फ़ोन पर {n} रसीदें सहेजी गईं",
+    check_local: "आपके फ़ोन पर रखी कॉपी से जाँचा गया", check_server: "आपको भेजी गई कॉपी से जाँचा गया",
+    check_all_ok: "सभी {n} मालिक के रिकॉर्ड से मेल खाती हैं",
+    offline: "इंटरनेट नहीं — आपकी सहेजी कॉपी दिखा रहे हैं", online_again: "फिर से ऑनलाइन",
+    print_payslip: "पे-स्लिप डाउनलोड / प्रिंट करें", payslip_doc: "पे-स्लिप",
+    worker_label: "कर्मचारी", site_label: "साइट", period_label: "अवधि", printed_label: "प्रिंट किया",
+    print_verify: "हर पंक्ति हस्ताक्षरित लेजर घटनाओं से जुड़ी है; /api/ledger/verify पर जाँचें",
     app_name: "साक्षी",
     tab_today: "आज", tab_pay: "वेतन", tab_hours: "घंटे", tab_skills: "हुनर", tab_voice: "आवाज़", tab_rights: "अधिकार",
     hello: "नमस्ते, {name}",
@@ -310,6 +331,13 @@ export const STRINGS = {
   },
 
   or: {
+    my_copy: "ମୋ କପି", my_copy_count: "ଏହି ଫୋନରେ {n}ଟି ରସିଦ ସଂରକ୍ଷିତ",
+    check_local: "ଆପଣଙ୍କ ଫୋନରେ ଥିବା କପି ସହ ଯାଞ୍ଚ କରାଗଲା", check_server: "ଆପଣଙ୍କୁ ପଠାଯାଇଥିବା କପି ସହ ଯାଞ୍ଚ କରାଗଲା",
+    check_all_ok: "ସମସ୍ତ {n}ଟି ମାଲିକଙ୍କ ରେକର୍ଡ ସହ ମେଳ ଖାଉଛି",
+    offline: "ଇଣ୍ଟରନେଟ ନାହିଁ — ସଂରକ୍ଷିତ କପି ଦେଖାଉଛି", online_again: "ପୁଣି ଅନଲାଇନ",
+    print_payslip: "ଦରମା ସ୍ଲିପ ଡାଉନଲୋଡ / ପ୍ରିଣ୍ଟ କରନ୍ତୁ", payslip_doc: "ଦରମା ସ୍ଲିପ",
+    worker_label: "ଶ୍ରମିକ", site_label: "ସାଇଟ", period_label: "ଅବଧି", printed_label: "ପ୍ରିଣ୍ଟ ହେଲା",
+    print_verify: "ପ୍ରତ୍ୟେକ ଧାଡ଼ି ସ୍ୱାକ୍ଷରିତ ଲେଜର ଘଟଣା ସହ ଯୋଡ଼ା; /api/ledger/verify ରେ ଯାଞ୍ଚ କରନ୍ତୁ",
     app_name: "ସାକ୍ଷୀ",
     tab_today: "ଆଜି", tab_pay: "ଦରମା", tab_hours: "ଘଣ୍ଟା", tab_skills: "ଦକ୍ଷତା", tab_voice: "ସ୍ୱର", tab_rights: "ଅଧିକାର",
     hello: "ନମସ୍କାର, {name}",

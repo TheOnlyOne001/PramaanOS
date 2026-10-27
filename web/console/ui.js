@@ -36,3 +36,14 @@ export function setHTML(el, html) {
   el.innerHTML = html;
   if (key) { const n = el.querySelector(key); if (n) n.focus(); }
 }
+
+/** Give each body cell a data-label from its column header (used by the stacked-card layout on phones). */
+export function labelTables(root) {
+  root.querySelectorAll("table:not([data-labelled])").forEach((t) => {
+    const heads = [...t.querySelectorAll("thead th")].map((th) => th.textContent.trim());
+    if (!heads.length) { t.dataset.labelled = "kv"; return; }
+    t.querySelectorAll("tbody tr").forEach((tr) => [...tr.children].forEach((td, i) => { if (heads[i]) td.dataset.label = heads[i]; }));
+    t.dataset.labelled = "1";
+    t.classList.add("stack");
+  });
+}

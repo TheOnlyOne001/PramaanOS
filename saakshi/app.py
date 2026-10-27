@@ -41,7 +41,7 @@ async def security_headers(request: Request, call_next: RequestResponseEndpoint)
     resp.headers["X-Content-Type-Options"] = "nosniff"
     resp.headers["X-Frame-Options"] = "DENY"
     resp.headers["Referrer-Policy"] = "no-referrer"
-    resp.headers["Permissions-Policy"] = "camera=(), geolocation=(), microphone=(self)"
+    resp.headers["Permissions-Policy"] = "camera=(self), geolocation=(), microphone=(self)"
     if request.url.path.startswith("/api/"):
         resp.headers["Cache-Control"] = "no-store"
     return resp

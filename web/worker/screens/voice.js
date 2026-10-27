@@ -2,8 +2,9 @@
 // a scrub step that removes identifying details, case keys she keeps, and the "You said, we did" board.
 import { api, esc, toast } from "/shared/api.js";
 import { S, L, $, day } from "../state.js";
-import { TOPIC_ICON, unavailable } from "../ui.js";
+import { topicIcon, unavailable } from "../ui.js";
 import { SR, listen } from "../speech.js";
+import { icon } from "../icons.js";
 
 const casesKey = () => "saakshi-cases-" + S.wid;
 
@@ -18,35 +19,35 @@ function topicButton(tp) {
   const V = S.voice;
   const label = (tp.label && (tp.label[S.lang] || tp.label.en)) || tp.id;
   return `<button type="button" class="topic ${V.topic === tp.id ? "sel" : ""}" data-topic="${esc(tp.id)}" aria-pressed="${V.topic === tp.id}">
-    <span class="t-icon" aria-hidden="true">${TOPIC_ICON[tp.id] || "💬"}</span><span>${esc(label)}</span>
-    ${tp.safety_critical ? `<span class="chip warn">⚠️</span>` : ""}</button>`;
+    <span class="t-icon">${topicIcon(tp.id)}</span><span>${esc(label)}</span>
+    ${tp.safety_critical ? `<span class="chip warn">${icon("alert")}<span class="sr">${esc(L("hazard"))}</span></span>` : ""}</button>`;
 }
 
 function boardCard(board) {
   if (!board.ok) return unavailable();
   if (!board.data.length) return `<p class="muted">${esc(L("board_empty"))}</p>`;
   return `<ul class="board">${board.data.map((b) => `<li data-say="${esc(L("you_said"))}: ${esc(b.you_said)}. ${esc(L("we_did"))}: ${esc(b.we_did)}">
-    <div class="said"><span class="muted small">${TOPIC_ICON[b.topic] || "💬"} ${esc(L("you_said"))}</span><p>${esc(b.you_said)}</p></div>
-    <div class="did"><span class="small">✅ ${esc(L("we_did"))}</span><p><b>${esc(b.we_did)}</b></p><span class="muted small">${esc(b.by || "")} · ${esc(day(b.ts))}</span></div></li>`).join("")}</ul>`;
+    <div class="said"><span class="muted small inline-ic">${topicIcon(b.topic)} ${esc(L("you_said"))}</span><p>${esc(b.you_said)}</p></div>
+    <div class="did"><span class="small inline-ic">${icon("check")} ${esc(L("we_did"))}</span><p><b>${esc(b.we_did)}</b></p><span class="muted small">${esc(b.by || "")} · ${esc(day(b.ts))}</span></div></li>`).join("")}</ul>`;
 }
 
 export async function renderVoice(el) {
   const [topics, board] = await Promise.all([api("/voice/topics"), api("/voice/board")]);
   const V = S.voice;
-  let html = `<h1 class="screen-title">📣 ${esc(L("voice_title"))}</h1>
-    <section class="card anon" data-say><span class="big-icon" aria-hidden="true">🔒</span><p><b>${esc(L("voice_anon"))}</b></p></section>`;
+  let html = `<h1 class="screen-title">${icon("megaphone")} ${esc(L("voice_title"))}</h1>
+    <section class="card anon" data-say><span class="big-icon">${icon("lock")}</span><p><b>${esc(L("voice_anon"))}</b></p></section>`;
   if (!topics.ok) html += unavailable(L("voice_unavailable"));
   else {
     html += `<section class="card"><h2>${esc(L("step_topic"))}</h2><div class="topics">${(topics.data.topics || []).map(topicButton).join("")}</div></section>
     <section class="card"><h2>${esc(L("step_text"))}</h2>
       <div class="dictate"><textarea id="vtext" rows="3" placeholder="${esc(L("placeholder"))}">${esc(V.text)}</textarea>
-      <button type="button" class="mic small-mic" id="vmic" aria-label="${esc(L("mic"))}">🎤</button></div>
-      <button type="button" class="btn primary wide-btn" id="scrubBtn">🧹 ${esc(L("scrub_btn"))}</button>
+      <button type="button" class="mic small-mic" id="vmic" aria-label="${esc(L("mic"))}">${icon("mic")}</button></div>
+      <button type="button" class="btn primary wide-btn" id="scrubBtn">${icon("sparkle")} ${esc(L("scrub_btn"))}</button>
     </section>
     <section class="card ${V.scrub ? "" : "hidden"}" id="scrubCard"></section>
     <section id="caseCard"></section>`;
   }
-  html += `<section class="card"><h2>🤝 ${esc(L("board_title"))}</h2>${boardCard(board)}</section>`;
+  html += `<section class="card"><h2>${icon("users")} ${esc(L("board_title"))}</h2>${boardCard(board)}</section>`;
   el.innerHTML = html;
   if (!topics.ok) return;
   el.querySelectorAll("[data-topic]").forEach((b) => (b.onclick = () => {
@@ -81,10 +82,10 @@ function renderScrub() {
   const flags = V.scrub.flags || [];
   card.innerHTML = `<h2>${esc(L("step_check"))}</h2>
     <p class="small">${esc(flags.length ? L("scrub_hint") : L("scrub_clean"))}</p>
-    ${flags.length ? `<ul class="flags">${flags.map((f) => `<li><s>${esc(f.span)}</s> <span class="chip warn">⚠️ ${esc(f.reason)}</span></li>`).join("")}</ul>` : ""}
+    ${flags.length ? `<ul class="flags">${flags.map((f) => `<li><s>${esc(f.span)}</s> <span class="chip warn">${icon("alert")} ${esc(f.reason)}</span></li>`).join("")}</ul>` : ""}
     <textarea id="vfinal" rows="3" aria-label="${esc(L("step_check"))}">${esc(V.scrub.suggested ?? V.text)}</textarea>
-    <p class="anon-line small">🔒 ${esc(L("voice_anon"))}</p>
-    <button type="button" class="btn primary wide-btn" id="sendBtn">📨 ${esc(L("approve_send"))}</button>`;
+    <p class="anon-line small inline-ic">${icon("lock")} ${esc(L("voice_anon"))}</p>
+    <button type="button" class="btn primary wide-btn" id="sendBtn">${icon("send")} ${esc(L("approve_send"))}</button>`;
   $("#sendBtn").onclick = sendReport;
 }
 
@@ -115,14 +116,14 @@ async function sendReport() {
     const msg = String((e && e.message) || e);
     toast(/409|spent|already/i.test(msg) ? L("already_sent") : `${L("error")}: ${msg}`, 4500);
     btn.disabled = false;
-    btn.textContent = "📨 " + L("approve_send");
+    btn.innerHTML = `${icon("send")} ${esc(L("approve_send"))}`;
   }
 }
 
 function statusText(c) {
-  if (c.status === "published") return `✅ ${L("st_published", { n: c.corroborations })}`;
-  if (c.status === "escalated") return `🚨 ${L("st_escalated")}`;
-  return `⏳ ${L("st_waiting", { n: c.corroborations ?? 1, t: c.threshold ?? 3 })}`;
+  if (c.status === "published") return `${icon("check")} ${esc(L("st_published", { n: c.corroborations }))}`;
+  if (c.status === "escalated") return `${icon("alert")} ${esc(L("st_escalated"))}`;
+  return `${icon("hourglass")} ${esc(L("st_waiting", { n: c.corroborations ?? 1, t: c.threshold ?? 3 }))}`;
 }
 
 function responseText(r) {
@@ -133,11 +134,11 @@ function renderCases() {
   const el = $("#caseCard");
   if (!el) return;
   el.innerHTML = S.voice.cases.slice(0, 3).map((c, i) => `<div class="card case ${i === 0 ? "fresh" : ""}">
-    <span class="muted small">${TOPIC_ICON[c.topic] || "💬"} ${esc(L("case_key"))}</span>
+    <span class="muted small inline-ic">${topicIcon(c.topic)} ${esc(L("case_key"))}</span>
     <div class="case-key mono">${esc(c.case_key)}</div>
     <p class="small muted">${esc(L("case_key_note"))}</p>
-    <p class="case-status" data-say>${esc(statusText(c))}</p>
-    ${c.response ? `<p>✅ <b>${esc(responseText(c.response))}</b></p>` : ""}
+    <p class="case-status inline-ic" data-say>${statusText(c)}</p>
+    ${c.response ? `<p class="inline-ic">${icon("check")} <b>${esc(responseText(c.response))}</b></p>` : ""}
   </div>`).join("");
 }
 

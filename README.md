@@ -106,10 +106,15 @@ accept only their own overtime. Opening one worker's record needs a reason, whic
 **Three front-ends (`web/`), plain JS with no build step.**
 - **Landing page:** the product story with a live trust strip read from the ledger.
 - **Worker app:** Today, Pay, Hours, Skills, Voice and Rights screens; voice-first with read-aloud
-  and dictation; large touch targets; a WhatsApp-style receipt feed; an integrity banner.
+  and dictation; large touch targets; a WhatsApp-style receipt feed. An installable PWA that
+  works offline: every receipt is kept on her phone (IndexedDB), and the integrity check compares
+  **her own copy** with the employer's ledger. Printable payslip with evidence references.
 - **Employer console:** opens on exceptions, not charts; sections for Hours & overtime, Pay
   fairness, Skills coverage, Safety & cameras, Voice and SDG 8; every number links to its signed
-  evidence and Merkle proof.
+  evidence and Merkle proof; a "what happened" timeline with the hash diff when a record is edited;
+  keyboard shortcuts (`?`); responsive down to phone width.
+- **Verifier:** scan a skill credential's QR with the camera (frames never leave the device) or
+  paste it, and get an offline verdict with the level and evidence ladders.
 
 **SDG 8 scorecard (`console.py`).** Live indicators for targets 8.2 (line efficiency), 8.3
 (workers holding their own signed record), 8.5 (minimum wage and equal pay), 8.6 (credentials per
@@ -125,6 +130,8 @@ worker-year), 8.7 (overtime with signed consent) and 8.8 (near-misses logged, re
 | ![safety](docs/screenshots/c-safety.png) Camera events, no video | ![sdg8](docs/screenshots/c-sdg8.png) SDG 8 scorecard |
 | ![today](docs/screenshots/w-today.png) Worker: Today | ![pay](docs/screenshots/w-pay.png) Worker: payslip |
 | ![skills](docs/screenshots/w-skills.png) Worker: skill passport | ![voice](docs/screenshots/w-voice.png) Worker: speak anonymously |
+| ![offline](docs/screenshots/w-offline.png) Worker app offline, from her saved copy | ![verify](docs/screenshots/verify.png) Offline credential verdict |
+| ![mobile](docs/screenshots/c-mobile.png) Console at phone width | ![print](docs/screenshots/w-print.png) Printable payslip |
 
 </details>
 
@@ -258,9 +265,9 @@ saakshi/        FastAPI backend, fully typed (mypy clean)
   passport/       rules · evidence · vc · credentials · status · coverage · matching · api
   edge/           cameras · privacy · ingest · reports · api
 web/index.html  landing page
-web/worker/     worker app: app.js entry + screens/ (today, pay, hours, skills, voice, rights)
+web/worker/     worker PWA: app.js + screens/, store.js (receipts on the phone), sw.js (offline), icons.js
 web/console/    employer console: app.js entry + sections/ + modals, router, integrity
-web/verify/     offline credential verifier
+web/verify/     offline credential verifier with camera QR scan (scan.js)
 web/shared/     i18n strings, API helper, voice client, design tokens
 tests/          210 pytest tests (unit, property-based, contract, security, perf, e2e)
 scripts/        demo.py · tamper.py · edge_sim.py · bench.py

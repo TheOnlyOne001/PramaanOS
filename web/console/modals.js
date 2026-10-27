@@ -56,6 +56,35 @@ function proofBlock(p, err) {
     ${proof.length ? `<ol class="proof mono small">${proof.map((s) => `<li>${esc(sib(s))}</li>`).join("")}</ol>` : `<p class="muted small">Only event that day: its hash is the root.</p>`}`;
 }
 
+/** "What happened" for an edited row: signed → edited after signing → detected, with the hash diff. */
+function timeline(x, problems) {
+  const p = problems.find((q) => q.stored_hash) || problems[0];
+  const t = S.tamper[x.seq]; // known only when the edit came from this console's demo panel
+  const at = (ts) => `<time datetime="${esc(ts)}">${esc(fmtDay(ts))} ${esc(hm(ts))}</time>`;
+  const h16 = (h) => esc(String(h || "—").slice(0, 16));
+  return `<section class="what" aria-labelledby="whatTitle"><h3 id="whatTitle">What happened</h3><ol class="timeline">
+    <li class="t-ok"><b>Signed</b> ${t ? at(t.old_ts) : `as event #${esc(x.seq)}`}<div class="small muted">The site key sealed this row's fields into hash <span class="mono">${h16(p.stored_hash || x.hash)}</span>, chained to the previous event.</div></li>
+    <li class="t-bad"><b>Edited after signing</b><div class="small muted">${t ? `Punch time changed in the database: ${esc(hm(t.old_ts))} → ${esc(hm(t.new_ts))}.` : "A field was changed directly in the database, bypassing the ledger."}</div></li>
+    <li class="t-det"><b>Detected</b> ${S.detected[x.seq] ? at(S.detected[x.seq]) : "on the next check"}<div class="small muted">The console re-hashes every row every 3 s; this one no longer matches.</div></li>
+  </ol>
+  <table class="hashdiff"><caption class="sr">Stored versus recomputed hash (first 16 characters)</caption><tbody>
+    <tr><th scope="row">Stored at signing</th><td class="mono">${h16(p.stored_hash)}</td></tr>
+    <tr><th scope="row">Recomputed now</th><td class="mono bad">${h16(p.recomputed_hash)}</td></tr>
+  </tbody></table></section>`;
+}
+
+/** Keyboard shortcuts help (opened with "?"). */
+export function showHelp(keys) {
+  card().innerHTML = `<h2 id="modalTitle">Keyboard shortcuts</h2>
+    <table class="keys"><caption class="sr">Keyboard shortcuts</caption><tbody>
+      <tr><th scope="row"><kbd>?</kbd></th><td>Show this help</td></tr>
+      ${keys.map(([k, name]) => `<tr><th scope="row"><kbd>g</kbd> then <kbd>${esc(k)}</kbd></th><td>Go to ${esc(name)}</td></tr>`).join("")}
+      <tr><th scope="row"><kbd>Esc</kbd></th><td>Close a dialog</td></tr>
+    </tbody></table>
+    <p class="small muted">Shortcuts are off while you type in a field.</p>${CLOSE_ROW}`;
+  openModal();
+}
+
 /** Evidence dialog: one ledger event, its signature status and its Merkle inclusion proof. */
 export async function showEvent(seq) {
   const title = `<h2 id="modalTitle">Ledger event #${esc(seq)}</h2>`;
@@ -69,6 +98,7 @@ export async function showEvent(seq) {
   const row = (k, v, mono = true) => `<tr><th scope="row">${esc(k)}</th><td class="${mono ? "mono small brk" : ""}">${v}</td></tr>`;
   card().innerHTML = `<h2 id="modalTitle">Ledger event #${esc(x.seq)} <span class="mono small">${esc(x.ref || "")}</span></h2>
     ${bad.length ? `<p class="warnline" role="alert">⚠ ${esc(bad.map((q) => String(q.kind).replace(/_/g, " ")).join(", "))} — this row no longer matches its signature.</p>` : `<p>${chip("ok", "✓", "Signature and chain check passed")}</p>`}
+    ${bad.length ? timeline(x, bad) : ""}
     <div class="table-wrap"><table class="kv"><caption class="sr">Event fields</caption><tbody>
       ${row("Type", esc(x.type), false)}
       ${row("Worker", x.worker_id ? `${esc(S.names[x.worker_id] || x.worker_id)} <span class="mono small">${esc(x.worker_id)}</span>` : "Site", false)}

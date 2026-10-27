@@ -4,7 +4,9 @@ import { api, hm, fmtDay, toast } from "/shared/api.js";
 import { S, $, DEMO_DAY } from "./state.js";
 import { registerSections, go } from "./router.js";
 import { pollVerify } from "./integrity.js";
-import { askReason, showEvent, showRoots, closeModal, trapTab, isModalOpen } from "./modals.js";
+import { askReason, showEvent, showRoots, showHelp, closeModal, trapTab, isModalOpen } from "./modals.js";
+import { onShortcut, shortcutList } from "./shortcuts.js";
+import { labelTables } from "./ui.js";
 import { renderOverview } from "./sections/overview.js";
 import { renderHours, refreshReqs } from "./sections/hours.js";
 import { renderPay } from "./sections/pay.js";
@@ -27,8 +29,13 @@ async function tick() {
 }
 
 async function runDemo(action) {
+  if (action === "reset") S.tamper = {};
   if (action === "reset") return [await api("/demo/reset", { method: "POST" }), (d) => `Demo reset · ${d.n_events} events`];
-  if (action === "tamper") return [await api("/demo/tamper", { method: "POST", body: {} }), (d) => (d.ok ? `Edited #${d.seq} in SQL: ${hm(d.old_ts)} → ${hm(d.new_ts)}` : d.error)];
+  if (action === "tamper") {
+    const r = await api("/demo/tamper", { method: "POST", body: {} });
+    if (r.ok && r.data.ok) S.tamper[r.data.seq] = { ...r.data, at: new Date().toISOString() };
+    return [r, (d) => (d.ok ? `Edited #${d.seq} in SQL: ${hm(d.old_ts)} → ${hm(d.new_ts)}` : d.error)];
+  }
   return [await api(`/ledger/roots/publish?day=${DEMO_DAY}`, { method: "POST" }), (d) => `Root published for ${d.day} · ${d.n_events} events`];
 }
 
@@ -40,7 +47,8 @@ function wireHandlers() {
     setTimeout(() => { const n = $(`#nav [data-sec="${b.dataset.sec}"]`); if (n) n.focus(); }, 0);
   };
   $("#modal").addEventListener("click", (e) => { if (e.target.id === "modal") closeModal(); });
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); trapTab(e); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); trapTab(e); onShortcut(e); });
+  $("#helpBtn").onclick = () => showHelp(shortcutList());
   document.body.addEventListener("click", (e) => {
     const a = e.target.closest("a[data-event]");
     if (a && !e.ctrlKey && !e.metaKey && !e.shiftKey) { e.preventDefault(); showEvent(a.dataset.event); return; }
@@ -65,6 +73,15 @@ function wireHandlers() {
   window.addEventListener("hashchange", () => go(location.hash.slice(1), false));
 }
 
+/** "updated 2 s ago" next to the live status, so a stalled poll is visible. */
+function tickAge() {
+  const el = $("#updated");
+  if (!el || !S.lastPoll) return;
+  const s = Math.max(0, Math.round((Date.now() - S.lastPoll) / 1000));
+  el.textContent = s < 2 ? "updated just now" : s < 120 ? `updated ${s} s ago` : `updated ${Math.round(s / 60)} min ago`;
+  el.classList.toggle("stale", s > 10);
+}
+
 async function boot() {
   const [site, w] = await Promise.all([api("/site"), api("/workers")]);
   if (site.ok) $("#site").textContent = `${site.data.name} · ${site.data.site_id} · ${site.data.state} · ${fmtDay(site.data.demo_day, "en-IN", { day: "numeric", month: "short", year: "numeric" })}`;
@@ -73,6 +90,10 @@ async function boot() {
   await pollVerify();
   go((location.hash || "#overview").slice(1), false);
   setInterval(tick, 3000);
+  setInterval(tickAge, 1000);
+  // Small screens show tables as stacked cards: each cell carries its column name.
+  new MutationObserver(() => labelTables(document)).observe(document.body, { childList: true, subtree: true });
+  labelTables(document);
 }
 
 boot();

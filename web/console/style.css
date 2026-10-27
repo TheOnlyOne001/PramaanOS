@@ -101,3 +101,56 @@ ol.proof { padding-left: 1.4em; word-break: break-all; }
 .integrity.bad { background: #a8231b; color: #fff; }
 .btn.light { background: #fff; color: #8c1d18; border-color: #fff; }
 .integrity.ok .btn.light { color: #08524f; }
+
+/* Live status: "updated N s ago" turns amber when polling stalls. */
+.updated { font-variant-numeric: tabular-nums; padding-left: 6px; border-left: 1px solid var(--border); }
+.updated.stale { color: var(--warn); font-weight: 650; }
+.icon-btn { min-height: 40px; padding: 6px 10px; font-size: .85rem; }
+kbd { font-family: var(--mono); font-size: .8em; padding: .1em .45em; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 5px; background: var(--surface-2); color: var(--text); }
+
+/* Integrity flip: verified → edited, highlighted once. Reduced motion gets a static ring instead of movement. */
+.int-flip { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 6px 0 4px; }
+.int-flip .chip { font-size: .85rem; }
+@media (prefers-reduced-motion: reduce) {
+  .integrity.flash { box-shadow: inset 0 0 0 4px #fff; }
+  body.alarm::after { opacity: 1; }
+}
+
+/* Evidence dialog: "What happened" timeline and hash diff */
+.what { margin: 12px 0 8px; padding: 12px; border: 1px solid var(--crit); border-radius: 12px; background: var(--crit-soft); }
+.what h3 { margin: 0 0 8px; }
+.timeline { list-style: none; margin: 0 0 10px; padding: 0 0 0 22px; position: relative; }
+.timeline::before { content: ""; position: absolute; left: 7px; top: 6px; bottom: 6px; width: 2px; background: var(--border); }
+.timeline li { position: relative; padding: 0 0 10px; }
+.timeline li::before { content: ""; position: absolute; left: -20px; top: 5px; width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--surface); }
+.timeline .t-ok::before { background: var(--ok); } .timeline .t-bad::before { background: var(--crit); } .timeline .t-det::before { background: var(--warn-bg); }
+.hashdiff { width: auto; font-size: .88rem; background: var(--surface); border-radius: 8px; }
+.hashdiff th { text-transform: none; letter-spacing: 0; font-size: .82rem; white-space: nowrap; }
+.hashdiff td { font-size: .95rem; }
+.hashdiff td.bad { color: var(--crit); font-weight: 700; }
+table.keys th { text-transform: none; letter-spacing: 0; font-size: .9rem; color: var(--text); white-space: nowrap; }
+
+/* Tablet: compact top bar, nav becomes a horizontal scroll strip (see 820px rule above). */
+@media (max-width: 820px) {
+  .topbar { gap: 8px 12px; }
+  .site { flex-basis: 100%; order: 3; }
+  .nav { scrollbar-width: thin; scroll-snap-type: x proximity; margin: 0 -16px; padding: 0 16px 4px; }
+  .nav-item { scroll-snap-align: start; }
+}
+/* Phone: tables become stacked cards; each cell shows its column name. */
+@media (max-width: 600px) {
+  .hide-sm { display: none; }
+  .grid2 { grid-template-columns: minmax(0, 1fr); }
+  table.stack thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  table.stack, table.stack tbody, table.stack tr, table.stack td { display: block; width: 100%; }
+  table.stack tr { border: 1px solid var(--border); border-radius: 10px; padding: 6px 10px; margin: 0 0 8px; background: var(--surface); }
+  table.stack tr.badrow { background: var(--crit-soft); }
+  table.stack td { border: 0; padding: 4px 0; display: grid; grid-template-columns: minmax(84px, 38%) minmax(0, 1fr); gap: 8px; align-items: center; overflow-wrap: anywhere; }
+  table.stack td[data-label]::before { content: attr(data-label); font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); }
+  table.stack td .meter { min-width: 0; }
+  .int-text { min-width: 0; }
+  .int-detail { font-size: 1.05rem; }
+  .integrity .int-row .btn.light[data-roots] { margin-left: 0; }
+  .modal { padding: 8px; } .modal-card { padding: 16px; max-height: 94vh; }
+  .demo { right: 8px; bottom: 8px; }
+}

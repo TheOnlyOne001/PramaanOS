@@ -1,11 +1,13 @@
 /* Worker app: phone-first, big touch targets, icon + word + number together. */
+:root { --tabbar-h: 70px; }
 body { font-size: 17px; }
 .small { font-size: .88rem; }
 .center { text-align: center; }
 .right { margin-left: auto; }
 .row-between { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 
-.phone { max-width: 430px; margin: 0 auto; min-height: 100vh; background: var(--bg); position: relative; padding-bottom: 96px; }
+.phone { max-width: 430px; margin: 0 auto; min-height: 100vh; background: var(--bg); position: relative;
+  padding-bottom: calc(var(--tabbar-h) + 24px + env(safe-area-inset-bottom)); }
 @media (min-width: 640px) {
   body { background: var(--surface-2); padding: 24px 0; }
   .phone { min-height: calc(100vh - 48px); border-radius: 28px; box-shadow: var(--shadow), 0 0 0 1px var(--border); overflow: hidden; }
@@ -226,3 +228,97 @@ textarea:focus { outline: 2px solid var(--accent); }
 .phone input[type="checkbox"], .phone input[type="radio"] { min-height: 24px; min-width: 24px; }
 .phone a.ref { display: inline-flex; align-items: center; min-height: 24px; min-width: 24px; }
 img.qr { display: block; width: 180px; height: 180px; image-rendering: pixelated; background: #fff; }
+
+/* Icons: one inline-SVG line family, sized by context, always beside a word. */
+.ic { width: 1.25em; height: 1.25em; flex: none; vertical-align: -.25em; }
+h1 .ic, h2 .ic { color: var(--accent); }
+.screen-title { display: flex; align-items: center; gap: 8px; }
+.inline-ic { display: inline-flex; align-items: center; gap: 6px; }
+.tab-icon .ic { width: 26px; height: 26px; }
+.speak-icon .ic { width: 26px; height: 26px; }
+.stat-icon { color: var(--accent); }
+.stat-icon .ic { width: 22px; height: 22px; }
+.ot-icon { color: var(--accent); } .ot-icon .ic { width: 32px; height: 32px; }
+.mic .ic { width: 34px; height: 34px; } .small-mic .ic { width: 26px; height: 26px; }
+.mic { display: grid; place-items: center; }
+.answer .a-icon .ic { width: 30px; height: 30px; }
+.big-icon .ic { width: 30px; height: 30px; }
+.consent-done .big-icon .ic { width: 28px; height: 28px; }
+.ck .ic { width: 18px; height: 18px; }
+.r-icon { color: var(--accent); } .r-icon .ic { width: 30px; height: 30px; }
+.t-icon { color: var(--accent); } .t-icon .ic { width: 28px; height: 28px; }
+.li-icon { color: var(--text-muted); }
+.b-text .ic { color: var(--accent-strong); }
+.ticks .ic { width: 14px; height: 14px; stroke-width: 3; }
+.int-icon .ic { width: 30px; height: 30px; }
+.hazard .ic { width: 24px; height: 24px; }
+.chip .ic { width: 1.05em; height: 1.05em; vertical-align: -.15em; }
+.card.empty .ic { color: var(--text-muted); }
+.demo summary { gap: 6px; }
+
+/* "My copy": receipts held on this phone, visible on every screen. */
+.copy-pill { margin-left: auto; display: inline-flex; align-items: center; gap: 5px; flex: none; padding: 4px 10px; min-height: 32px;
+  border-radius: 999px; background: var(--accent-ink); color: var(--accent-strong); border: 1px solid color-mix(in srgb, var(--accent-ink) 40%, transparent);
+  font-size: .8rem; font-weight: 700; }
+.copy-pill:empty { display: none; }
+.copy-pill .ic { width: 16px; height: 16px; }
+.copy-pill b { font-size: .95rem; font-variant-numeric: tabular-nums; }
+.copy-line { display: flex; align-items: flex-start; gap: 8px; margin: 0 0 8px; padding: 8px 10px; border-radius: var(--radius-sm);
+  background: var(--surface-2); font-size: .86rem; font-weight: 600; color: var(--text-muted); }
+.copy-line:empty { display: none; }
+.copy-line.ok { background: var(--ok-soft); color: var(--ok); }
+.copy-line.bad { background: var(--crit-soft); color: var(--crit); }
+.copy-line .ic { width: 18px; height: 18px; margin-top: 1px; }
+.int-source { display: flex; align-items: center; gap: 8px; margin: 10px 0 0; padding-top: 8px; font-weight: 700; font-size: .92rem;
+  border-top: 1px solid rgba(255, 255, 255, .45); }
+.int-source .ic { width: 18px; height: 18px; }
+
+/* Offline banner: calm, not alarming; the saved copy is still her proof. */
+.netbar:empty { display: none; }
+.netbar { padding: 10px 12px 0; }
+.net-inner { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: var(--radius); font-weight: 700;
+  background: var(--warn-soft); color: var(--warn); border: 2px solid color-mix(in srgb, var(--warn) 45%, transparent); }
+.net-inner .ic { width: 22px; height: 22px; }
+
+/* Bottom tabs: active indicator bar + safe-area inset for phones with a home bar. */
+.tabs { min-height: calc(var(--tabbar-h) + env(safe-area-inset-bottom)); box-shadow: 0 -4px 16px rgba(15, 28, 27, .06);
+  padding-left: max(2px, env(safe-area-inset-left)); padding-right: max(2px, env(safe-area-inset-right)); }
+.tab { transition: color .2s, background-color .2s; }
+.tab::before { content: ""; position: absolute; top: 0; left: 28%; right: 28%; height: 3px; border-radius: 0 0 3px 3px;
+  background: var(--accent); transform: scaleX(0); transition: transform .25s ease; }
+.tab.active::before { transform: scaleX(1); }
+.tab.active .tab-icon .ic { stroke-width: 2.4; }
+.top { padding-top: max(12px, env(safe-area-inset-top)); }
+
+/* Screen change: a short fade-up, skipped entirely for reduced motion (see tokens.css). */
+main.enter > * { animation: enter .22s ease-out both; }
+@keyframes enter { from { opacity: 0; transform: translateY(6px); } }
+@media (prefers-reduced-motion: reduce) { main.enter > * { animation: none; } .tab::before { transition: none; } }
+
+.print-only { display: none; }
+
+/* Print: only a clean payslip. No nav, banners, buttons or demo controls; black on white. */
+@media print {
+  @page { size: A4; margin: 14mm; }
+  :root { --text: #000; --text-muted: #333; --border: #999; --surface: #fff; --surface-2: #fff; --ok: #000; --crit: #000; --accent: #000; }
+  body, .phone { background: #fff !important; color: #000; padding: 0 !important; margin: 0; box-shadow: none !important; max-width: none; min-height: 0; font-size: 11pt; }
+  .top, .tabs, #banner, .netbar, .skip-link, .toast, .no-print, .demo, .explain .btn { display: none !important; }
+  main { padding: 0; gap: 8px; }
+  main.enter > * { animation: none; }
+  .print-only { display: block; }
+  .card { box-shadow: none; border: 1px solid #999; border-radius: 6px; padding: 10px 12px; break-inside: avoid; }
+  .print-head { border: 0; border-bottom: 2px solid #000; border-radius: 0; padding: 0 0 8px; }
+  .print-brand { display: flex; align-items: center; gap: 8px; font-size: 14pt; }
+  .print-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; margin: 8px 0 0; }
+  .print-meta dt { font-size: 8.5pt; text-transform: uppercase; letter-spacing: .04em; color: #333; }
+  .print-meta dd { margin: 0; font-weight: 700; }
+  .screen-title { font-size: 15pt; }
+  .net-val { font-size: 22pt; color: #000; }
+  .chip { border: 1px solid #000 !important; background: #fff !important; color: #000 !important; }
+  .ref { background: none; border: 1px solid #999; color: #000; }
+  .print-verify { display: flex; align-items: center; gap: 8px; margin-top: 8px; padding-top: 8px; border-top: 2px solid #000; font-weight: 700; font-size: 10pt; }
+  .blocked { border: 3px solid #000; }
+}
+
+/* The integrity alarm keeps the same deep red in both themes so white text stays readable (6.4:1). */
+.int-inner { background: #b3141b; outline-color: #b3141b; }

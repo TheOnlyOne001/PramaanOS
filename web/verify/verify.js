@@ -152,6 +152,15 @@
 
   var REG_KEY = 'saakshi.issuers.v1';
   var $ = function (id) { return document.getElementById(id); };
+  var EVIDENCE_LADDER = ['None', 'Self-declared', 'Employer-attested', 'System-evidenced', 'Independently assessed'];
+  var ILUO = ['I', 'L', 'U', 'O'];
+  var LEVEL_PLAIN = {
+    I: 'Is still learning this operation and needs close help.',
+    L: 'Can do the work when a supervisor checks it.',
+    U: 'Does the work to standard on their own, without supervision.',
+    O: 'Does the work to standard and can teach it to others.'
+  };
+  var current = null; // {vc, res} of the last check, for copy-link
 
   function store(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* private mode */ } }
   function load(k) { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } }
@@ -189,51 +198,84 @@
     });
   }
 
-  function row(label, value, hint) {
-    return '<div class="row"><dt>' + esc(label) + '</dt><dd>' + value + (hint ? '<small>' + esc(hint) + '</small>' : '') + '</dd></div>';
+  function day(s) {
+    if (!s) return '';
+    var d = new Date(s);
+    if (isNaN(d)) return esc(String(s).slice(0, 10));
+    return esc(d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }));
   }
 
-  function setVerdict(kind, title, detail) {
+  function fact(label, value, hint) {
+    return '<div class="fact"><dt>' + esc(label) + '</dt><dd>' + value + (hint ? '<small>' + esc(hint) + '</small>' : '') + '</dd></div>';
+  }
+
+  /* A ladder of steps with the achieved one filled and announced. */
+  function ladder(steps, at, cls, label) {
+    return '<ol class="ladder ' + cls + '" aria-label="' + esc(label) + '">' + steps.map(function (st, i) {
+      var state = i === at ? 'here' : i < at ? 'below' : '';
+      return '<li class="' + state + '"' + (i === at ? ' aria-current="step"' : '') + '><b>' + esc(st[0]) + '</b>' + esc(st[1]) + '</li>';
+    }).join('') + '</ol>';
+  }
+
+  function announce(text) { var l = $('live'); l.textContent = ''; setTimeout(function () { l.textContent = text; }, 30); }
+
+  function setVerdict(kind, title, detail, badges) {
     var v = $('verdict');
-    v.className = 'verdict ' + kind;
+    v.className = 'card verdict ' + kind;
     v.hidden = false;
     $('verdict-icon').textContent = kind === 'ok' ? '✓' : kind === 'warn' ? '!' : '✕';
     $('verdict-title').textContent = title;
     $('verdict-detail').textContent = detail;
+    $('verdict-badges').innerHTML = badges || '';
+    $('copy-link').hidden = !current;
+    void v.offsetWidth; // restart the reveal animation
+    v.classList.add('reveal');
+    announce(title + '. ' + detail);
+  }
+
+  function offlineBadge(res) {
+    if (!res.signatureOk || !res.issuer) return '';
+    var key = String(res.issuer.public_key_hex || '').slice(0, 16);
+    return '<span class="badge ok"><span aria-hidden="true">⛨</span> Verified offline · issuer key <code>' + esc(key) + '…</code></span>';
   }
 
   function render(vc, res, regInfo) {
     var s = vc.credentialSubject || {};
     var ev = s.evidence || {};
     var html = '';
-    html += row('Worker', esc(s.name || '—'), s.id ? 'Pseudonymous ID ' + s.id.split(':').pop() : '');
+    var issName = (vc.issuer && vc.issuer.name) || (res.issuer && res.issuer.name) || '';
+    html += fact('Worker', '<span class="lead">' + esc(s.name || '—') + '</span>', s.id ? 'Pseudonymous ID ' + s.id.split(':').pop() : '');
     if (s.level) {
-      html += row('Skill', '<b>' + esc(s.skillLabel || s.skill) + '</b> · level <span class="pill">' + esc(s.level) + '</span> ' + esc(LEVELS[s.level] || s.levelLabel || ''),
-        'ILUO scale: I in training → L with supervision → U independent → O can train others');
+      var lv = ILUO.indexOf(s.level);
+      html += fact('Skill', '<span class="lead">' + esc(s.skillLabel || s.skill) + '</span> · level <span class="pill">' + esc(s.level) + '</span> ' +
+        esc(LEVELS[s.level] || s.levelLabel || '') + '<span class="hint">' + esc(LEVEL_PLAIN[s.level] || '') + '</span>' +
+        ladder(ILUO.map(function (k) { return [k, LEVELS[k]]; }), lv, 'cols-4', 'Skill level on the ILUO scale: ' + s.level + ' of I, L, U, O'));
     } else {
-      html += row('Credential', '<b>' + esc(s.skillLabel || s.skill) + '</b>');
+      html += fact('Credential', '<span class="lead">' + esc(s.skillLabel || s.skill) + '</span>');
     }
-    if (s.evidenceLevel) {
+    if (s.evidenceLevel != null) {
       var e = EVIDENCE[s.evidenceLevel] || [s.evidenceLabel || '', ''];
-      html += row('Evidence', 'Level ' + esc(s.evidenceLevel) + ' of 4 · <b>' + esc(e[0]) + '</b>', e[1]);
+      html += fact('Evidence', 'Level ' + esc(s.evidenceLevel) + ' of 4 · <b>' + esc(e[0]) + '</b><span class="hint">' + esc(e[1]) + '</span>' +
+        ladder(EVIDENCE_LADDER.map(function (n, i) { return [String(i), n]; }), +s.evidenceLevel, 'cols-5', 'Evidence level ' + s.evidenceLevel + ' of 4'));
     }
     if (ev.days) {
-      html += row('Proof of work', esc(ev.days) + ' qualifying shift days · median efficiency ' +
+      html += fact('Proof of work', esc(ev.days) + ' qualifying shift days · median efficiency ' +
         esc(Math.round(parseFloat(ev.medianEfficiency) * 100)) + '% · worst defect rate ' +
         esc((parseFloat(ev.maxDefectRate) * 100).toFixed(1)) + '%',
         (ev.criteria ? 'Rule: ' + ev.criteria + '. ' : '') + (ev.ledgerSeqs ? 'Backed by ' + ev.ledgerSeqs.length + ' signed ledger entries.' : ''));
     }
-    if (s.nsqf) html += row('Maps to', esc(s.nsqf));
-    var issName = (vc.issuer && vc.issuer.name) || (res.issuer && res.issuer.name) || '';
-    html += row('Issued by', esc(issName), vc.issuer && vc.issuer.id);
-    html += row('Valid', esc((vc.validFrom || '').slice(0, 10)) + (vc.validUntil ? ' → ' + esc(vc.validUntil.slice(0, 10)) : ' → no expiry'));
-    html += '<div class="row"><dt>Revocation</dt><dd id="revocation">Checking…</dd></div>';
-    html += row('Credential ID', '<code>' + esc(vc.id) + '</code>');
+    if (s.nsqf) html += fact('Maps to', esc(s.nsqf));
+    html += fact('Issued by', '<b>' + esc(issName) + '</b>', vc.issuer && vc.issuer.id);
+    html += fact('Valid', 'From ' + day(vc.validFrom) + (vc.validUntil ? ' until ' + day(vc.validUntil) : ' · no expiry'),
+      vc.validUntil ? '' : 'Skill credentials do not expire; the issuer can only revoke one for fraud.');
+    html += '<div class="fact"><dt>Revocation</dt><dd id="revocation">Checking…</dd></div>';
+    html += fact('Credential ID', '<code>' + esc(vc.id) + '</code>');
     $('details').innerHTML = html;
-    $('details').hidden = false;
+    $('details-card').hidden = false;
 
     $('checks').innerHTML = res.checks.map(function (c) {
-      return '<li class="' + (c.ok ? 'ok' : 'bad') + '">' + (c.ok ? '✓ ' : '✕ ') + esc(c.detail) + '</li>';
+      return '<li><span class="' + (c.ok ? 'ok' : 'bad') + '" aria-hidden="true">' + (c.ok ? '✓' : '✕') + '</span><span><span class="sr">' +
+        (c.ok ? 'Passed: ' : 'Failed: ') + '</span>' + esc(c.detail) + '</span></li>';
     }).join('') + '<li class="muted">Issuer list: ' + esc(regInfo.source === 'online' ? 'fetched just now' :
       regInfo.source === 'cached' ? 'cached copy from ' + ((regInfo.registry && regInfo.registry.cached_at) || '').slice(0, 16).replace('T', ' ') + ' (offline)' : 'not available') + '</li>';
     $('how').hidden = false;
@@ -248,44 +290,139 @@
     fetchJSON(url).then(function (status) {
       var r = isRevoked(vc, status);
       if (r === true) {
-        el.innerHTML = '<b class="bad">Revoked by the issuer</b>';
-        if (res.valid) setVerdict('bad', 'Revoked', 'The signature is genuine, but the issuer withdrew this credential (fraud found).');
+        el.innerHTML = '<span class="bad-text">✕ Revoked by the issuer</span>';
+        if (res.valid) setVerdict('bad', '✗ Revoked', 'The signature is genuine, but the issuer withdrew this credential (fraud found).', offlineBadge(res));
       } else if (r === false) {
-        el.innerHTML = '<span class="ok">Not revoked</span> <small>checked online just now</small>';
+        el.innerHTML = '<span class="ok-text">✓ Not revoked</span> <small>checked online just now</small>';
       } else el.textContent = 'Unknown';
     }).catch(function () { el.textContent = 'Unknown (offline) — signature check still holds'; });
   }
 
+  function focusVerdict() { var h = $('verdict-title'); if (h) h.focus(); }
+
   function run(input) {
     var vc;
-    $('details').hidden = true; $('how').hidden = true;
+    current = null;
+    $('details-card').hidden = true; $('how').hidden = true;
     try { vc = decodeVC(input); } catch (e) {
-      setVerdict('bad', 'Could not read this credential', 'The link or text is damaged or incomplete.');
-      return;
+      setVerdict('bad', '✗ Could not read this credential', 'The link or text is damaged or incomplete. Ask for the QR code again.');
+      focusVerdict();
+      return Promise.resolve();
     }
-    getRegistry().then(function (regInfo) {
+    return getRegistry().then(function (regInfo) {
       if (!regInfo.registry) {
         setVerdict('warn', 'Cannot check yet', 'Open this page once while online so it can save the list of trusted issuers.');
+        focusVerdict();
         return;
       }
       var res = verifyVC(vc, regInfo.registry, root.nacl);
-      if (res.valid) setVerdict('ok', 'Genuine credential', 'Signed by ' + res.issuer.name + ' and unchanged since.');
-      else if (res.expired) setVerdict('warn', 'Expired', res.reason);
-      else setVerdict('bad', 'Not valid', res.reason);
+      current = { vc: vc, res: res };
+      if (res.valid) setVerdict('ok', '✓ Verified', 'Genuine and unchanged since ' + (res.issuer.name || 'the issuer') + ' signed it.', offlineBadge(res));
+      else if (res.expired) setVerdict('warn', 'Expired', res.reason, offlineBadge(res));
+      else setVerdict('bad', '✗ Not valid', res.reason, '<span class="badge crit"><span aria-hidden="true">✕</span> Do not rely on this credential</span>');
       render(vc, res, regInfo);
       checkRevocation(vc, res);
+      $('input-title').textContent = 'Check another credential';
+      $('empty-steps').hidden = true;
+      $('paste-box').open = false;
+      focusVerdict();
     });
+  }
+
+  function verifyLink(vc) { return location.origin + location.pathname + '#' + encodeVC(vc); }
+
+  function copyLink() {
+    if (!current) return;
+    var link = verifyLink(current.vc);
+    var done = function () { announce('Verify link copied'); $('copy-link').lastChild.textContent = ' Copied'; };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(link).then(done, function () { $('paste').value = link; });
+    else { $('paste').value = link; $('paste-box').open = true; $('paste').select(); }
+  }
+
+  /* ---- QR scanning (scan.js); hidden unless BarcodeDetector and a camera exist ---- */
+  var Scan = root.SaakshiScan;
+
+  function onScanned(raw) {
+    var code = Scan.extract(raw);
+    closeScanner(false);
+    if (location.hash.slice(1) !== code) history.replaceState(null, '', '#' + code);
+    run(code);
+  }
+
+  function openScanner() {
+    $('scanner').hidden = false;
+    $('scan-btn').setAttribute('aria-expanded', 'true');
+    $('scan-status').textContent = 'Starting camera…';
+    Scan.start($('video'), onScanned).then(function () {
+      $('scan-status').textContent = 'Point the camera at the QR code. Frames stay on this device.';
+      $('scan-stop').focus();
+    }).catch(function (e) {
+      $('scan-status').textContent = e && e.name === 'NotAllowedError' ? 'Camera permission was refused. You can paste the link instead.' : 'Could not open a camera. You can paste the link instead.';
+      $('scan-stop').focus();
+    });
+  }
+
+  function closeScanner(refocus) {
+    Scan.stop();
+    $('video').srcObject = null;
+    $('scanner').hidden = true;
+    $('scan-btn').setAttribute('aria-expanded', 'false');
+    if (refocus) $('scan-btn').focus();
+  }
+
+  function readFile(file) {
+    if (!file) return;
+    if (/^image\//.test(file.type) && Scan) {
+      Scan.fromFile(file).then(function (raw) {
+        if (raw) onScanned(raw);
+        else { setVerdict('bad', '✗ No QR code found', 'That image has no readable QR code. Try a sharper photo, or paste the link.'); focusVerdict(); }
+      }).catch(function () { setVerdict('bad', '✗ Could not read that image', 'Try another photo, or paste the link.'); focusVerdict(); });
+      return;
+    }
+    file.text().then(function (t) { run(t); });
+  }
+
+  function wireScanner() {
+    if (!Scan) return;
+    Scan.support().then(function (can) {
+      if (can.camera) { $('scan-btn').hidden = false; $('scan-btn').setAttribute('aria-controls', 'scanner'); $('scan-btn').setAttribute('aria-expanded', 'false'); }
+      if (can.image) {
+        $('file').setAttribute('accept', 'image/*,.json,.txt,application/json,text/plain');
+        $('file-label').textContent = can.camera ? 'Choose a QR image' : 'Choose a QR image or file';
+      }
+      $('scan-note').hidden = !(can.camera || can.image);
+    });
+    $('scan-btn').addEventListener('click', openScanner);
+    $('scan-stop').addEventListener('click', function () { closeScanner(true); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !$('scanner').hidden) closeScanner(true); });
+    window.addEventListener('pagehide', function () { Scan.stop(); });
   }
 
   document.addEventListener('DOMContentLoaded', function () {
     getRegistry(); // warm the cache for later offline use
+    $('scan-note').hidden = true;
+    wireScanner();
     $('paste-form').addEventListener('submit', function (e) {
       e.preventDefault();
       run($('paste').value);
     });
+    $('file').addEventListener('change', function (e) { readFile(e.target.files && e.target.files[0]); e.target.value = ''; });
+    $('copy-link').addEventListener('click', copyLink);
+    $('print').addEventListener('click', function () { window.print(); });
+    $('again').addEventListener('click', function () {
+      history.replaceState(null, '', location.pathname);
+      current = null;
+      ['verdict', 'details-card', 'how'].forEach(function (id) { $(id).hidden = true; });
+      $('input-title').textContent = 'Check a credential';
+      $('empty-steps').hidden = false;
+      $('paste').value = '';
+      $('paste-box').open = true;
+      $('copy-link').lastChild.textContent = ' Copy link';
+      ($('scan-btn').hidden ? $('paste') : $('scan-btn')).focus();
+    });
     var h = location.hash.replace(/^#/, '');
-    if (h) { $('paste-box').open = false; run(h); }
-    else { $('paste-box').open = true; }
+    if (h) run(h);
+    else $('paste-box').open = true;
     window.addEventListener('hashchange', function () { var x = location.hash.slice(1); if (x) run(x); });
   });
 })(typeof self !== 'undefined' ? self : this);

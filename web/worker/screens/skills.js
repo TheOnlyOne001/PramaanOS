@@ -3,6 +3,7 @@ import { api, esc, rupees, num } from "/shared/api.js";
 import { term } from "/shared/i18n.js";
 import { S, L, day } from "../state.js";
 import { unavailable } from "../ui.js";
+import { icon } from "../icons.js";
 
 /** Normalise the credential shapes the API may return. */
 function credParts(c) {
@@ -25,13 +26,13 @@ function credCard(c) {
     ? L("cred_title", { level: term(S.lang, "lv_", level), skill: term(S.lang, "sk_", skill) })
     : ((c.credentialSubject && c.credentialSubject.skillLabel) || String(skill || "").replace(/_/g, " "));
   return `<section class="card cred" data-say="${esc(L("verified_skill"))}: ${esc(title)}">
-    <span class="chip ok">✓ ${esc(L("verified_skill"))}</span>
+    <span class="chip ok">${icon("shield")} ${esc(L("verified_skill"))}</span>
     <h2 class="cred-title">${esc(title)}</h2>
     ${issued ? `<p class="muted small">${esc(L("issued", { date: day(issued) }))}</p>` : ""}
     <img class="qr" alt="${esc(L("verified_skill"))}: ${esc(title)} — QR" width="180" height="180" src="/api/passport/credentials/${encodeURIComponent(id)}/qr">
     <p class="small">${esc(L("scan_note"))}</p>
     <p class="mono small id-line">${esc(id)}</p>
-    <a class="btn link-btn" href="/verify/" target="_blank" rel="noopener">🔎 ${esc(L("open_verify"))}</a>
+    <a class="btn link-btn" href="/verify/" target="_blank" rel="noopener">${icon("qr")} ${esc(L("open_verify"))}</a>
   </section>`;
 }
 
@@ -42,21 +43,21 @@ function progressItem(p) {
   const title = L("cred_title", { level: term(S.lang, "lv_", p.level), skill: term(S.lang, "sk_", p.skill) });
   const days = L("days_progress", { met, needed });
   return `<li data-say="${esc(title)}: ${esc(days)}">
-    <div class="row-between"><b>${p.met ? "✓ " : ""}${esc(title)}</b><span class="small">${esc(days)}</span></div>
+    <div class="row-between"><b class="inline-ic">${p.met ? icon("check") : ""}${esc(title)}</b><span class="small">${esc(days)}</span></div>
     <div class="meter" role="progressbar" aria-label="${esc(title)}" aria-valuemin="0" aria-valuemax="${esc(needed || 100)}" aria-valuenow="${esc(needed ? met : Math.round(pct))}"><i style="width:${pct}%"></i></div>
-    ${band || p.pay ? `<div class="small">💰 ${esc(L("pay_band", { band: band ? term(S.lang, "band_", band) : "" }))}${p.pay ? " · " + esc(rupees(p.pay)) : ""}${p.min_wage ? " · " + esc(rupees(p.min_wage)) : ""}</div>` : ""}
+    ${band || p.pay ? `<div class="small inline-ic">${icon("rupee")} ${esc(L("pay_band", { band: band ? term(S.lang, "band_", band) : "" }))}${p.pay ? " · " + esc(rupees(p.pay)) : ""}${p.min_wage ? " · " + esc(rupees(p.min_wage)) : ""}</div>` : ""}
     ${p.criteria ? `<div class="small muted">${esc(pairs(p.criteria))}${p.current ? ` · now ${esc(pairs(p.current, (v) => (typeof v === "number" ? num(v, 2) : v)))}` : ""}</div>` : ""}
   </li>`;
 }
 
 export async function renderSkills(el) {
   const r = await api(`/passport/${S.wid}`);
-  let html = `<h1 class="screen-title">🎓 ${esc(L("skills_title"))}</h1>`;
+  let html = `<h1 class="screen-title">${icon("badge")} ${esc(L("skills_title"))}</h1>`;
   if (!r.ok) { el.innerHTML = html + unavailable(); return; }
   const creds = r.data.credentials || [];
   html += creds.length ? creds.map(credCard).join("") : `<div class="card empty">${esc(L("no_creds"))}</div>`;
   const prog = r.data.progress || [];
-  if (prog.length) html += `<section class="card"><h2>📈 ${esc(L("next_skills"))}</h2><ul class="progress">${prog.map(progressItem).join("")}</ul></section>`;
+  if (prog.length) html += `<section class="card"><h2>${icon("chart")} ${esc(L("next_skills"))}</h2><ul class="progress">${prog.map(progressItem).join("")}</ul></section>`;
   el.innerHTML = html;
   // A missing QR image degrades to a labelled placeholder instead of a broken-image icon.
   el.querySelectorAll("img.qr").forEach((img) => img.addEventListener("error", () => {

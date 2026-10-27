@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Saakshi">
+  <rect width="512" height="512" rx="112" fill="#0b6b68"/>
+  <path d="M256 92 128 140v96c0 82 54 152 128 172 74-20 128-90 128-172v-96L256 92Z" fill="none" stroke="#ffffff" stroke-width="32" stroke-linejoin="round"/>
+  <path d="m196 252 44 44 80-84" fill="none" stroke="#ffffff" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

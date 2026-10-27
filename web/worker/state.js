@@ -17,6 +17,10 @@ export const S = {
   mismatchChanged: false, consentDirty: false,
   voice: { topic: null, text: "", scrub: null, cases: [] },
   rules: null,
+  held: 0,             // receipts held on this phone (store.js)
+  checkSource: null,   // "phone" | "server": which copy the last integrity check used
+  checked: 0,          // how many receipts that check covered
+  offline: false,
 };
 
 /** Translate key `k` into the current language. */

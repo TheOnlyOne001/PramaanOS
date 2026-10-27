@@ -1,0 +1,19 @@
+{
+  "name": "Saakshi · சாட்சி — my work record",
+  "short_name": "Saakshi",
+  "description": "Your own signed copy of your hours, pay, overtime consent and skills.",
+  "id": "/worker/",
+  "start_url": "/worker/?w=W001",
+  "scope": "/worker/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "lang": "ta",
+  "theme_color": "#0b6b68",
+  "background_color": "#f4f6f5",
+  "icons": [
+    { "src": "/worker/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/worker/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/worker/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/worker/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
