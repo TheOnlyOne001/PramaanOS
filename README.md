@@ -4,6 +4,8 @@
 ![tests](https://img.shields.io/badge/tests-191%20passing-brightgreen)
 ![coverage](https://img.shields.io/badge/coverage-93%25-brightgreen)
 ![a11y](https://img.shields.io/badge/WCAG%202.1%20AA-0%20axe%20violations-blue)
+![lint](https://img.shields.io/badge/ruff-strict%2C%200%20issues-success)
+![docstrings](https://img.shields.io/badge/public%20API%20docstrings-100%25-success)
 ![SDG 8](https://img.shields.io/badge/UN%20SDG-8%20Decent%20Work-a21942)
 
 **Shared, tamper-evident, privacy-preserving work records that workers and employers both hold.**
@@ -31,7 +33,7 @@ export garment unit in Tiruppur, Tamil Nadu.
 ## Contents
 
 [Problem](#the-problem) · [Features](#features) · [Architecture](#architecture) ·
-[Quick start](#quick-start) · [Demo](#the-3-minute-demo) · [Quality](#engineering-quality) ·
+[Quick start](#quick-start) · [Demo](#the-3-minute-demo) · [Quality](#engineering-quality) · [Code quality](#code-quality) ·
 [Configuration](#configuration) · [Layout](#repository-layout) · [Limitations](#limitations-and-roadmap) · [Docs](#documentation)
 
 ## The problem
@@ -183,6 +185,37 @@ python3 scripts/demo.py --base http://localhost:8000 --db data/saakshi.db --paus
 
 **Red lines, not built on purpose:** face recognition for discipline, emotion recognition,
 toilet-break tracking, keystroke logging, individual leaderboards, union-activity monitoring.
+
+## Code quality
+
+**Design principles**
+- **Single source of truth.** Every state change is a signed ledger event; engines derive from it,
+  so there is no second copy to drift. Working tables are caches.
+- **Clear module boundaries.** One module per engine, each exposing a FastAPI `router` and plain
+  Python functions. The console composes modules through those functions and survives any one
+  of them failing.
+- **Deterministic core.** Pay, caps and fairness are pure arithmetic over signed events, so any
+  pay run can be re-run for an audit. No LLM computes money, discipline or hiring.
+- **Secure by default.** Deny-by-default access policy, validated inputs, strict CSP, and demo
+  tools that switch off with one flag.
+- **Contract first.** [API.md](API.md) is the contract; a test fails if code and contract drift.
+
+**Conventions**
+- Every public function and class in `saakshi/` has a docstring.
+- Type hints on all public signatures; pydantic models validate every request body.
+- Canonical JSON (sorted keys, UTF-8) wherever bytes are signed, so Python and JS agree byte for byte.
+- Corrections are new events, never `UPDATE`s; see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+**Quality gates** (all run in CI and by `make check`)
+
+| Gate | Tool | Standard |
+| --- | --- | --- |
+| Lint | ruff: bugbear, bandit, isort, pyupgrade, simplify, pylint, perflint, pydocstyle | 0 issues |
+| Tests | pytest + Hypothesis | 191 passing |
+| Coverage | pytest-cov | 93%, CI fails below 83% |
+| Contract | `test_contract.py` | Every route documented in API.md |
+| End to end | `test_e2e_demo.py` | All 7 demo steps pass |
+| Accessibility | axe-core | 0 WCAG 2.1 AA violations on audited pages |
 
 ## Configuration
 
