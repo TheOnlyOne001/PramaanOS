@@ -17,6 +17,7 @@ def st(tmp_path, monkeypatch):
 @pytest.fixture
 def client(st):
     from fastapi.testclient import TestClient
+
     from saakshi.app import app
     return TestClient(app)
 
@@ -25,6 +26,7 @@ def client(st):
 def auth_client(st, monkeypatch):
     """Client with authentication ON (the production default)."""
     from fastapi.testclient import TestClient
+
     from saakshi import config
     from saakshi.app import app
     monkeypatch.setattr(config, "AUTH_ENABLED", True)

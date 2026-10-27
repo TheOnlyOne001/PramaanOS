@@ -6,8 +6,8 @@ def make(st):
     from saakshi.edge import make_event
 
     def _make(**kw):
-        base = dict(camera="cam-07", zone="Press zone", kind="restricted_zone_entry", count=1,
-                    ts="2026-10-27T10:15:00+05:30")
+        base = {"camera": "cam-07", "zone": "Press zone", "kind": "restricted_zone_entry", "count": 1,
+                    "ts": "2026-10-27T10:15:00+05:30"}
         base.update(kw)
         return make_event(st.keys, **base)
     return _make
@@ -111,6 +111,7 @@ def test_seed_and_console_functions(st):
 def test_sim_script_scenarios(st):
     import importlib.util
     from pathlib import Path
+
     from saakshi.edge import ingest
     p = Path(__file__).resolve().parent.parent / "scripts" / "edge_sim.py"
     spec = importlib.util.spec_from_file_location("edge_sim", p)

@@ -25,7 +25,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 DAY = "2026-10-27"
-T = lambda hm: f"{DAY}T{hm}:00+05:30"  # noqa: E731
+T = lambda hm: f"{DAY}T{hm}:00+05:30"
 
 BOLD, DIM, RED, GREEN, AMBER, RESET = "\033[1m", "\033[2m", "\033[31m", "\033[32m", "\033[33m", "\033[0m"
 failures: list[str] = []
@@ -128,6 +128,7 @@ def main():
         db_path = os.path.join(tempfile.mkdtemp(), "demo.db")
         os.environ["SAAKSHI_DB"] = db_path
         from fastapi.testclient import TestClient
+
         from saakshi.app import app
         http = TestClient(app)
     http = AuthedHttp(http)
@@ -221,8 +222,9 @@ def main():
 
     # 5 ---------------------------------------------------------------------
     step(5, "A person steps into the press zone in front of the camera", a.pause)
-    from saakshi.crypto import KeyStore
     import threading
+
+    from saakshi.crypto import KeyStore
     kconn = sqlite3.connect(db_path, isolation_level=None, check_same_thread=False)
     kconn.row_factory = sqlite3.Row
     box_keys = KeyStore(kconn, threading.RLock())

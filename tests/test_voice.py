@@ -124,7 +124,7 @@ def test_safety_escalates_on_first_report(client):
     p.get_tokens("W006", topics=["safety", "harassment"])
     r = p.report("safety", "Fire exit behind line is blocked with cartons")
     assert r["status"] == "escalated" and r["route_to"]["to"] == "Safety officer"
-    t = [x for x in voice.themes() if x["topic"] == "safety"][0]
+    t = next(x for x in voice.themes() if x["topic"] == "safety")
     assert t["escalated"] and t["reports"][0]["text"].startswith("Fire exit")
     h = p.report("harassment", "Comments about women at the cutting table", "or")
     assert h["status"] == "escalated" and "POSH" in h["route_to"]["to"]
@@ -190,7 +190,7 @@ const C = window.SaakshiVoice._crypto;
 }})();
 """)
     out = subprocess.run(["node", str(script), MONTH, "water", m.hex(), to_hex(n), str(e), to_hex(r), to_hex(s_blind)],
-                         capture_output=True, text=True, timeout=60)
+                         capture_output=True, text=True, timeout=60, check=False)
     assert out.returncode == 0, out.stderr
     js = json.loads(out.stdout)
     assert js["fdh"] == to_hex(fdh(MONTH, "water", m, n))

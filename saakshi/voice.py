@@ -349,10 +349,10 @@ def _name_patterns(s) -> list[tuple[str, str, str]]:
         parts.extend((p, repl) for p in r["name"].split() if len(p) >= 3)
         if r["contractor"]:
             contractors.add(r["contractor"])
-    for c in sorted(contractors, key=len, reverse=True):
-        out.append((r"\b" + re.escape(c) + r"\b", "[a contractor]", "names a contractor"))
-    for name, repl in sorted(fulls, key=lambda x: -len(x[0])) + parts:
-        out.append((r"\b" + re.escape(name) + r"\b", repl, "names a person"))
+    out.extend((r"\b" + re.escape(c) + r"\b", "[a contractor]", "names a contractor")
+               for c in sorted(contractors, key=len, reverse=True))
+    out.extend((r"\b" + re.escape(name) + r"\b", repl, "names a person")
+               for name, repl in [*sorted(fulls, key=lambda x: -len(x[0])), *parts])
     return out
 
 
@@ -362,9 +362,7 @@ def scrub(text: str, st=None) -> dict:
     found = []  # (start, end, repl, reason)
     for pat, repl, reason in _PATTERNS + _name_patterns(s):
         flags = 0 if "[A-Z]" in pat else re.IGNORECASE
-        for mt in re.finditer(pat, text, flags):
-            if mt.end() > mt.start():
-                found.append((mt.start(), mt.end(), repl, reason))
+        found.extend((mt.start(), mt.end(), repl, reason) for mt in re.finditer(pat, text, flags) if mt.end() > mt.start())
     # keep earliest, then longest; drop overlaps
     found.sort(key=lambda f: (f[0], -(f[1] - f[0])))
     chosen, last_end = [], -1
@@ -535,5 +533,17 @@ def seed_demo(st) -> None:
     respond("toilets", SEED_RESPONSE[0], SEED_RESPONSE[1], month=month, ts=SEED_RESPONSE[2], st=st)
 
 
-__all__ = ["router", "themes", "board", "seed_demo", "scrub", "issue", "submit_report", "respond", "key",
-           "fdh", "TOPIC_IDS", "THRESHOLD"]
+__all__ = [
+    "THRESHOLD",
+    "TOPIC_IDS",
+    "board",
+    "fdh",
+    "issue",
+    "key",
+    "respond",
+    "router",
+    "scrub",
+    "seed_demo",
+    "submit_report",
+    "themes",
+]

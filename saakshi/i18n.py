@@ -7,7 +7,7 @@ Translations here are short and hand-written; Bhashini would replace them.
 """
 from __future__ import annotations
 
-from typing import Callable
+from collections.abc import Callable
 
 LANGS = ("en", "ta", "hi", "or")
 

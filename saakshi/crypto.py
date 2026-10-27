@@ -4,7 +4,7 @@ from __future__ import annotations
 import hashlib
 import json
 import threading
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from nacl.encoding import HexEncoder
 from nacl.exceptions import BadSignatureError
@@ -99,7 +99,7 @@ class KeyStore:
                 self.conn.execute(
                     "INSERT INTO keys(name, seed_hex, public_hex, created) VALUES (?,?,?,?)",
                     (name, sk.encode(HexEncoder).decode(), sk.verify_key.encode(HexEncoder).decode(),
-                     datetime.now(timezone.utc).isoformat()),
+                     datetime.now(UTC).isoformat()),
                 )
         self._cache[name] = sk
         return sk

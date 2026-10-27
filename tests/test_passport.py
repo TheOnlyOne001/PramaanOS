@@ -125,7 +125,7 @@ process.stdout.write(JSON.stringify({{
   revoked: V.isRevoked(vc, {{bitmap: [1]}}),
 }}));
 """
-    out = subprocess.run(["node", "-e", script], capture_output=True, text=True, encoding="utf-8", timeout=30)
+    out = subprocess.run(["node", "-e", script], capture_output=True, text=True, encoding="utf-8", timeout=30, check=False)
     assert out.returncode == 0, out.stderr
     res = json.loads(out.stdout)
     # byte-for-byte canonical match with Python

@@ -25,26 +25,26 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from saakshi import config, db  # noqa: E402
-from saakshi.crypto import KeyStore  # noqa: E402
-from saakshi.edge import make_event  # noqa: E402,F401  (re-exported for demo scripts)
-from saakshi.ledger import now_ts  # noqa: E402
+from saakshi import config, db
+from saakshi.crypto import KeyStore
+from saakshi.edge import make_event
+from saakshi.ledger import now_ts
 
 
 def scenario_events(name: str) -> list[dict]:
     """Unsigned event fields for a scenario (ts defaults to now)."""
     s = {
-        "press_zone": [dict(camera="cam-07", zone="Press zone", kind="restricted_zone_entry", count=1)],
-        "ppe": [dict(camera="cam-04", zone="Line 4", kind="ppe_compliance_rate", value=0.87),
-                dict(camera="cam-07", zone="Press zone", kind="ppe_compliance_rate", value=0.71),
-                dict(camera="cam-07", zone="Press zone", kind="ppe_noncompliance", count=2)],
-        "queue": [dict(camera="cam-11", zone="Water point", kind="queue_length", count=12)],
-        "fire": [dict(camera="cam-12", zone="Store", kind="fire_smoke", count=1)],
+        "press_zone": [{"camera": "cam-07", "zone": "Press zone", "kind": "restricted_zone_entry", "count": 1}],
+        "ppe": [{"camera": "cam-04", "zone": "Line 4", "kind": "ppe_compliance_rate", "value": 0.87},
+                {"camera": "cam-07", "zone": "Press zone", "kind": "ppe_compliance_rate", "value": 0.71},
+                {"camera": "cam-07", "zone": "Press zone", "kind": "ppe_noncompliance", "count": 2}],
+        "queue": [{"camera": "cam-11", "zone": "Water point", "kind": "queue_length", "count": 12}],
+        "fire": [{"camera": "cam-12", "zone": "Store", "kind": "fire_smoke", "count": 1}],
     }
     if name == "all":
         return [e for k in ("press_zone", "ppe", "queue", "fire") for e in s[k]]
     if name not in s:
-        raise SystemExit(f"unknown scenario {name!r}; choose from {sorted(s) + ['all']}")
+        raise SystemExit(f"unknown scenario {name!r}; choose from {[*sorted(s), 'all']}")
     return s[name]
 
 

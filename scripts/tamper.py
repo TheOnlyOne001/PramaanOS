@@ -11,8 +11,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from saakshi import config  # noqa: E402
-from saakshi.tamper import tamper_punch_out  # noqa: E402
+from saakshi import config
+from saakshi.tamper import tamper_punch_out
 
 
 def main():

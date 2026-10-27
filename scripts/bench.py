@@ -66,7 +66,7 @@ def main():
     try:  # role-based auth, when present: act as HR
         from saakshi import auth
         client.headers["Authorization"] = "Bearer " + auth.issue_token("hr", sub="bench")
-    except Exception:  # noqa: BLE001
+    except Exception:
         pass
     client.get("/api/console/overview")  # warm imports
     ov, r = _t(lambda: client.get("/api/console/overview"), reps=3)

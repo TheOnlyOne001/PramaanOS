@@ -3,6 +3,7 @@
 Core tables live here. Each module adds its own tables by calling
 `register_schema(sql)` at import time; `init_schema` runs them all.
 """
+import contextlib
 import sqlite3
 from pathlib import Path
 
@@ -52,10 +53,8 @@ def register_schema(sql: str) -> None:
 
 
 def connect(path: str) -> sqlite3.Connection:
-    try:
+    with contextlib.suppress(OSError):
         Path(path).parent.mkdir(parents=True, exist_ok=True)
-    except OSError:
-        pass
     conn = sqlite3.connect(path, check_same_thread=False, isolation_level=None)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")

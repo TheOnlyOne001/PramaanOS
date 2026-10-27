@@ -110,7 +110,7 @@ def _hours(L, wid: str, day_from: str, day_to: str) -> list[dict]:
         d["evidence"].append(e["seq"])
         d["corrected"] |= e["seq"] in corrected
         key = "in" if e["type"] == "punch.in" else "out"
-        if key == "in" and d["in"] is None or key == "out":
+        if (key == "in" and d["in"] is None) or key == "out":
             d[key] = times[e["seq"]]
     accepted = _accepted_by_date(wid)
     out = []
@@ -260,10 +260,7 @@ def today(wid: str, day: str | None = None) -> dict:
     day = day or config.DEMO_DAY
     s = next((x for x in hours(wid, day, day)), None)
     rate = hourly_rate(w["skill_band"])
-    if s and not s["complete"] and s["in"]:
-        worked = 0.0
-    else:
-        worked = s["worked_hours"] if s else 0.0
+    worked = 0.0 if s and not s["complete"] and s["in"] else s["worked_hours"] if s else 0.0
     ot = s["ot_hours"] if s else 0.0
     normal = min(worked, RULES["daily_hours"])
     return {"day": day, "in": s and s["in"], "out": s and s["out"], "worked_hours": worked, "ot_hours": ot,
@@ -459,7 +456,7 @@ def get_hours(wid: str, day_from: str = "2026-10-01", day_to: str = config.DEMO_
 
 
 @router.get("/ot/cap")
-def get_cap(date: str | None = None):  # noqa: A002
+def get_cap(date: str | None = None):
     return cap_status(date)
 
 

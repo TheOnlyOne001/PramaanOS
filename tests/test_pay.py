@@ -12,6 +12,7 @@ def punch(st, wid, day, t_in, t_out=None):
     st.ledger.append("punch.in", {"device": "t"}, worker_id=wid, ts=f"{day}T{t_in}:00+05:30")
     if t_out:
         return st.ledger.append("punch.out", {"device": "t"}, worker_id=wid, ts=f"{day}T{t_out}:00+05:30")
+    return None
 
 
 def request(client, wids, hours=2, day=DAY):

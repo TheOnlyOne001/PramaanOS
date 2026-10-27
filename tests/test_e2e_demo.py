@@ -14,7 +14,7 @@ def test_demo_script_passes(tmp_path):
            # in-process demo is the trusted local path; auth is covered by its own tests
            "SAAKSHI_AUTH": "0"}
     p = subprocess.run([sys.executable, str(ROOT / "scripts" / "demo.py")], cwd=str(ROOT), env=env,
-                       capture_output=True, text=True, timeout=180)
+                       capture_output=True, text=True, timeout=180, check=False)
     out = p.stdout + p.stderr
     assert p.returncode == 0, out[-4000:]
     assert "All demo checks passed" in out, out[-4000:]

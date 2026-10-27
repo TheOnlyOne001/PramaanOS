@@ -80,10 +80,10 @@ def test_clean_random_ledger_always_verifies(st, events):
 def test_any_single_column_edit_is_detected(st, events, col, pick):
     rows = _build(st, events)
     seq = rows[pick % len(rows)]["seq"]
-    old = st.conn.execute(f"SELECT {col} FROM events WHERE seq=?", (seq,)).fetchone()[0]  # noqa: S608
+    old = st.conn.execute(f"SELECT {col} FROM events WHERE seq=?", (seq,)).fetchone()[0]
     if col == "worker_id" and old is None:
         old = ""
-    st.conn.execute(f"UPDATE events SET {col}=? WHERE seq=?", (_mutated(col, old), seq))  # noqa: S608
+    st.conn.execute(f"UPDATE events SET {col}=? WHERE seq=?", (_mutated(col, old), seq))
     v = st.ledger.verify()
     assert not v["ok"], f"edit of {col} on seq {seq} went unnoticed"
 

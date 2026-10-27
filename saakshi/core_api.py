@@ -61,8 +61,7 @@ def punch(p: Punch):
     _worker(p.worker_id)
     if p.kind not in ("in", "out"):
         raise HTTPException(422, "kind must be 'in' or 'out'")
-    ev = state.get().ledger.append(f"punch.{p.kind}", {"device": p.device}, worker_id=p.worker_id, ts=p.ts)
-    return ev
+    return state.get().ledger.append(f"punch.{p.kind}", {"device": p.device}, worker_id=p.worker_id, ts=p.ts)
 
 
 class Correction(BaseModel):

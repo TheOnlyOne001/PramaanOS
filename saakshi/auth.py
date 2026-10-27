@@ -153,7 +153,7 @@ def verify_token(token: str) -> dict | None:
         if p["role"] == "worker" and not p.get("wid"):
             return None
         return p
-    except Exception:  # noqa: BLE001 - any malformed token is simply "not authenticated"
+    except Exception:
         return None
 
 
@@ -186,9 +186,7 @@ def allowed(roles, mm, p: dict, query: dict, body: dict | None) -> bool:
         return True
     if "body_self" in roles and isinstance(body, dict) and body.get("worker_id") == wid:
         return True
-    if "consent_owner" in roles and g.get("rid") and _owns_request(g["rid"], wid):
-        return True
-    return False
+    return bool("consent_owner" in roles and g.get("rid") and _owns_request(g["rid"], wid))
 
 
 _BODY_RULES = {"body_self"}

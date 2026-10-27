@@ -16,8 +16,20 @@ line-length = 160
 target-version = "py311"
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "B", "S"]
-ignore = ["S101", "S311", "E731", "B008", "S608"]
+# pycodestyle, pyflakes, bugbear, bandit, isort, pyupgrade, simplify, ruff, comprehensions,
+# pie, return, perflint and pylint: a strict, security-aware rule set.
+select = ["E", "F", "W", "B", "S", "I", "UP", "SIM", "RUF", "C4", "PIE", "RET", "PERF", "PL"]
+ignore = [
+  "S101",     # assert is fine in tests
+  "S311",     # random is used for demo data, never for secrets
+  "E731",     # small lambdas in i18n tables read best inline
+  "B008",     # FastAPI dependency defaults
+  "S608",     # SQL is built from fixed clauses with bound parameters
+  "PLR0913", "PLR0917", "PLR0912", "PLR0915", "PLR0911", "PLR2004",  # complexity is reviewed by hand
+  "RUF001", "RUF002", "RUF003",  # Tamil, Hindi, Odia and ₹ are intentional
+  "PLC0415",  # local imports avoid circular module loading
+  "PLW0603",  # one process-wide state object, by design
+]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["S"]

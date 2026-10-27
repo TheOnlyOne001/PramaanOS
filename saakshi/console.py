@@ -41,10 +41,9 @@ def _integrity_exceptions(v: dict) -> list[dict]:
                     "title": f"Record edited after signing: {who} · {p.get('type')} #{p.get('seq')}",
                     "detail": p["detail"], "people": [p["worker_id"]] if p.get("worker_id") else [],
                     "action": "Open evidence", "link": f"/api/ledger/events/{p.get('seq')}"})
-    for p in roots:
-        out.append({"severity": "critical", "kind": "integrity", "title": "Published daily root no longer matches",
-                    "detail": p["detail"], "people": [], "action": "Compare with worker copies",
-                    "link": "/api/ledger/roots"})
+    out.extend({"severity": "critical", "kind": "integrity", "title": "Published daily root no longer matches",
+                "detail": p["detail"], "people": [], "action": "Compare with worker copies",
+                "link": "/api/ledger/roots"} for p in roots)
     return out
 
 
@@ -121,12 +120,11 @@ def _edge_exceptions() -> list[dict]:
 
 def _skills_exceptions() -> list[dict]:
     from . import passport
-    out = []
-    for c in passport.expiring(days=30):
-        out.append({"severity": "medium", "kind": "skills",
-                    "title": f"Credential expiring: {c.get('name') or c.get('worker_id')} · {c.get('skill') or c.get('title')}",
-                    "detail": f"Valid until {c.get('valid_until') or c.get('validUntil')}. The roster will block the machine after expiry.",
-                    "people": [c.get("worker_id")] if c.get("worker_id") else [], "action": "Book training", "link": "#skills"})
+    out = [{"severity": "medium", "kind": "skills",
+            "title": f"Credential expiring: {c.get('name') or c.get('worker_id')} · {c.get('skill') or c.get('title')}",
+            "detail": f"Valid until {c.get('valid_until') or c.get('validUntil')}. The roster will block the machine after expiry.",
+            "people": [c.get("worker_id")] if c.get("worker_id") else [], "action": "Book training", "link": "#skills"}
+           for c in passport.expiring(days=30)]
     cov = passport.coverage()
     for s in cov.get("single_points_of_failure", []) if isinstance(cov, dict) else []:
         label = s if isinstance(s, str) else (s.get("skill") or str(s))

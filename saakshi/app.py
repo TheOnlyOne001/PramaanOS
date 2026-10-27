@@ -1,7 +1,7 @@
 """FastAPI app: API routers plus the static worker app, employer console and verify page."""
 from __future__ import annotations
 
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
@@ -47,10 +47,8 @@ for m in (auth, core_api, pay, voice, passport, edge, console):
 
 for name in ("worker", "console", "verify", "shared"):
     d = config.WEB / name
-    try:
+    with suppress(OSError):
         d.mkdir(parents=True, exist_ok=True)
-    except OSError:
-        pass
     app.mount(f"/{name}", StaticFiles(directory=str(d), html=True), name=name)
 
 

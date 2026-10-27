@@ -133,7 +133,7 @@ rules mapped to the functions that enforce them, and the threat model.
 
 ## Quick start
 
-Requires Python 3.11+ (Node 22 only for the JS-compatibility tests).
+Requires Python 3.11+ (Node 22 only for the JS-compatibility tests). `make check` runs lint, tests and the demo.
 
 ```bash
 git clone https://github.com/TheOnlyOne001/PramaanOS && cd PramaanOS
@@ -179,7 +179,7 @@ python3 scripts/demo.py --base http://localhost:8000 --db data/saakshi.db --paus
 | **Testing** | 191 tests, 93% coverage: property-based tamper tests (any single-row edit is caught), API contract test, security policy, cache invalidation, all four languages complete, the full demo as an end-to-end test; CI gate on coverage | [docs/TESTING.md](docs/TESTING.md) |
 | **Efficiency** | Verification cached on a write fingerprint that any edit moves, and only new events re-checked; pay and console memoised. On 20k events: console overview 19.8 s → 5.7 ms, payslip 1.2 s → 0.9 ms (cache hits; first view after a write ≈ 1.2 s) | [docs/PERFORMANCE.md](docs/PERFORMANCE.md) · `scripts/bench.py` |
 | **Accessibility** | 0 axe-core WCAG 2.1 AA violations on audited pages; skip links; dialog focus management; 44 px targets; status shown by icon and word, never colour alone; reduced motion; four languages with read-aloud | Screenshots · `web/` |
-| **Code quality** | One module per engine behind a written [API contract](API.md); ruff lint clean; CI runs lint, tests and the demo on every push | `.github/workflows/ci.yml` |
+| **Code quality** | One module per engine behind a written [API contract](API.md); strict ruff rule set (bugbear, bandit, isort, pyupgrade, simplify, pylint, perflint) clean; `make check`, pre-commit hooks, editorconfig, [CONTRIBUTING.md](CONTRIBUTING.md); CI runs lint, tests and the demo on every push | `Makefile` · `.github/workflows/ci.yml` |
 
 **Red lines, not built on purpose:** face recognition for discipline, emotion recognition,
 toilet-break tracking, keystroke logging, individual leaderboards, union-activity monitoring.
@@ -245,3 +245,4 @@ details come from law-firm and payroll summaries because the government PDFs wer
 | [SECURITY.md](SECURITY.md) | Roles, threat model, production deployment |
 | [docs/TESTING.md](docs/TESTING.md) | Test strategy, coverage per module |
 | [docs/PERFORMANCE.md](docs/PERFORMANCE.md) | Benchmarks and why the cache cannot hide a tamper |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Rules every change must follow |

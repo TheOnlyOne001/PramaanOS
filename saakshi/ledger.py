@@ -259,11 +259,10 @@ class Ledger:
             new = self._verify_full()
         problems = list(new["problems"])
         roots = self._roots_from(new)
-        for rt in roots:
-            if not rt["ok"]:
-                problems.append({"seq": None, "worker_id": None, "type": "daily_root", "ts": rt["day"],
-                                 "kind": "root_mismatch",
-                                 "detail": f"published root for {rt['day']} no longer matches the ledger"})
+        problems.extend({"seq": None, "worker_id": None, "type": "daily_root", "ts": rt["day"],
+                         "kind": "root_mismatch",
+                         "detail": f"published root for {rt['day']} no longer matches the ledger"}
+                        for rt in roots if not rt["ok"])
         new["result"] = {"ok": not problems, "n_events": new["n"], "problems": problems, "roots": roots,
                          "head": new["head"]}
         self._ck = new
@@ -326,5 +325,4 @@ class Ledger:
 
 def receipt_ctx(ev: dict) -> dict:
     p = ev.get("payload") or {}
-    ctx = {**p, "ref": ev["ref"], "type": ev["type"], "hm": ev["ts"][11:16], "date": ev["ts"][:10]}
-    return ctx
+    return {**p, "ref": ev["ref"], "type": ev["type"], "hm": ev["ts"][11:16], "date": ev["ts"][:10]}
