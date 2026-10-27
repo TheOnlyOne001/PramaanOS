@@ -11,6 +11,7 @@ garment unit in Tiruppur, Tamil Nadu.
 ## Run it
 
 ```bash
+git clone https://github.com/TheOnlyOne001/PramaanOS && cd PramaanOS
 pip install -r requirements.txt
 uvicorn saakshi.app:app --port 8000        # seeds a week of signed history on first start
 ```
@@ -23,7 +24,7 @@ uvicorn saakshi.app:app --port 8000        # seeds a week of signed history on f
 Tests and the scripted demo:
 
 ```bash
-python3 -m pytest                       # ledger, pay maths, voice unlinkability, passport, edge
+python3 -m pytest                       # 54 tests: ledger, pay maths, voice unlinkability, passport, edge
 python3 scripts/demo.py                 # the 3-minute demo, in-process, with pass/fail checks
 python3 scripts/demo.py --base http://localhost:8000 --db data/saakshi.db --pause   # live, with both UIs open
 python3 scripts/tamper.py               # the live tamper: edit Meena's punch-out straight in SQLite
@@ -56,14 +57,16 @@ More in [docs/screenshots](docs/screenshots).
 
 ## How it works
 
-```
- existing devices ──► connectors / edge box ──► TRUST LAYER ──► engines ──► two front-ends
- biometric gate        punch, production,       Ed25519 per      Proof of Hours  Worker app (PWA,
- CCTV (edge box)       camera events            event, hash      Fair Pay        voice-first, ta/hi/or/en)
- payroll exports                                chain per site,  Skill Passport  Employer console
-                                                daily Merkle     Voice           (exceptions first)
-                                                root, worker     Safety/Edge
-                                                receipts         SDG 8
+Full design, diagrams and threat model: **[ARCHITECTURE.md](ARCHITECTURE.md)**. HTTP contract: [API.md](API.md).
+
+```mermaid
+flowchart LR
+  D[Existing devices<br/>gate · CCTV edge box · production] --> T[Trust layer<br/>Ed25519 + hash chain + daily Merkle root]
+  T --> R[Worker receipts<br/>in her language]
+  T --> E[Engines<br/>Fair Pay · Passport · Voice · Safety · SDG 8]
+  E --> W[Worker app]
+  E --> C[Employer console]
+  R --> W
 ```
 
 | Piece | File | What's real |
@@ -89,6 +92,18 @@ this as the fallback.
 
 **Red lines (not built, on purpose):** face recognition for discipline, emotion recognition,
 toilet-break tracking, keystroke logging, individual leaderboards, union-activity monitoring.
+
+## Repository layout
+
+```
+saakshi/          FastAPI backend (one module per engine; see ARCHITECTURE.md)
+web/worker/       worker app (mobile, 4 languages, read-aloud)
+web/console/      employer console (exceptions first)
+web/verify/       offline credential verifier
+web/shared/       i18n strings, API helper, voice client, design tokens
+tests/            pytest suites
+scripts/          demo.py, tamper.py, edge_sim.py
+```
 
 ## Caveats
 
