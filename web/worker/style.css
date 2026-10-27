@@ -1,6 +1,5 @@
 /* Worker app: phone-first, big touch targets, icon + word + number together. */
 body { font-size: 17px; }
-.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 .small { font-size: .88rem; }
 .center { text-align: center; }
 .right { margin-left: auto; }

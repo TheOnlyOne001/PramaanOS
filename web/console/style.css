@@ -89,7 +89,6 @@ tr.badrow { background: var(--crit-soft); }
 .demo-panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; display: flex; flex-direction: column; gap: 6px; box-shadow: var(--shadow); width: min(320px, calc(100vw - 32px)); }
 
 /* a11y additions */
-.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .int-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .int-row .btn.light[data-roots] { margin-left: auto; }
 .people .linkish { min-height: 24px; padding: 2px 0; }

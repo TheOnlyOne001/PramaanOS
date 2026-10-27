@@ -3,9 +3,14 @@
 Core tables live here. Each module adds its own tables by calling
 `register_schema(sql)` at import time; `init_schema` runs them all.
 """
+from __future__ import annotations
+
 import contextlib
 import sqlite3
+import threading
+from collections.abc import Iterator
 from pathlib import Path
+from typing import Any
 
 CORE_SCHEMA = """
 CREATE TABLE IF NOT EXISTS keys(
@@ -53,11 +58,69 @@ def register_schema(sql: str) -> None:
         _module_schemas.append(sql)
 
 
-def connect(path: str) -> sqlite3.Connection:
-    """Open a WAL-mode SQLite connection at path, creating its directory."""
+class Rows:
+    """Rows already fetched under the connection lock; quacks like a finished sqlite3 cursor."""
+
+    def __init__(self, rows: list[Any], lastrowid: int | None, rowcount: int) -> None:
+        self._rows = rows
+        self.lastrowid = lastrowid
+        self.rowcount = rowcount
+
+    def fetchone(self) -> Any:
+        """Return the first row, or None when there are no rows."""
+        return self._rows[0] if self._rows else None
+
+    def fetchall(self) -> list[Any]:
+        """Return every row."""
+        return list(self._rows)
+
+    def __iter__(self) -> Iterator[Any]:
+        return iter(self._rows)
+
+
+class SerializedConnection(sqlite3.Connection):
+    """A connection that runs and fully fetches each statement while holding one re-entrant lock.
+
+    FastAPI serves requests from a thread pool that shares this connection. SQLite forbids two
+    threads stepping statements on one connection at the same time ("bad parameter or other API
+    misuse"), so every statement is executed and drained inside the lock.
+    """
+
+    lock: threading.RLock
+
+    def execute(self, sql: str, parameters: Any = (), /) -> Any:
+        """Execute one statement and return its rows, fetched under the lock."""
+        with self.lock:
+            cur = super().execute(sql, parameters)
+            return Rows(cur.fetchall() if cur.description else [], cur.lastrowid, cur.rowcount)
+
+    def executemany(self, sql: str, parameters: Any, /) -> Any:
+        """Execute a statement for each parameter set under the lock."""
+        with self.lock:
+            cur = super().executemany(sql, parameters)
+            return Rows([], cur.lastrowid, cur.rowcount)
+
+    def executescript(self, sql_script: str, /) -> Any:
+        """Run a multi-statement script under the lock."""
+        with self.lock:
+            return super().executescript(sql_script)
+
+    def close(self) -> None:
+        """Close once no other thread is mid-statement."""
+        with self.lock:
+            super().close()
+
+
+def connect(path: str, lock: threading.RLock | None = None) -> SerializedConnection:
+    """Open a WAL-mode SQLite connection at path, creating its directory.
+
+    All statements on the returned connection are serialised on `lock` (shared with the app's
+    state lock so ledger appends and reads never interleave).
+    """
     with contextlib.suppress(OSError):
         Path(path).parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(path, check_same_thread=False, isolation_level=None)
+    conn = sqlite3.connect(path, check_same_thread=False, isolation_level=None, factory=SerializedConnection)
+    conn.lock = lock or threading.RLock()
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA synchronous=NORMAL")

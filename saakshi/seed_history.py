@@ -5,7 +5,7 @@ import logging
 
 from .state import State
 
-log = logging.getLogger("saakshi.seed")
+log = logging.getLogger(__name__)
 
 PAST_DAYS = ["2026-10-19", "2026-10-20", "2026-10-21", "2026-10-22", "2026-10-23", "2026-10-24", "2026-10-26"]
 

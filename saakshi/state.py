@@ -15,15 +15,16 @@ from .ledger import Ledger
 
 class State:
     """Shared app state: DB connection, lock, keys and ledger."""
-    def __init__(self, path: str):
+    def __init__(self, path: str) -> None:
         self.path = path
         self.lock = threading.RLock()
-        self.conn = db.connect(path)
+        self.conn = db.connect(path, self.lock)
         db.init_schema(self.conn)
         self.keys = KeyStore(self.conn, self.lock)
         self.ledger = Ledger(self.conn, self.keys, self.lock)
 
-    def close(self):
+    def close(self) -> None:
+        """Close the database connection, ignoring an already-closed one."""
         with contextlib.suppress(sqlite3.Error):
             self.conn.close()
 

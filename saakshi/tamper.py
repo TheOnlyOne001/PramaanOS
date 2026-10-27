@@ -7,16 +7,18 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from typing import Any
 
+from . import events
 from .crypto import canonical, sha256_hex
 
 
 def tamper_punch_out(conn: sqlite3.Connection, worker_id: str = "W001", seq: int | None = None,
-                     new_ts: str | None = None, mode: str = "naive") -> dict:
+                     new_ts: str | None = None, mode: str = "naive") -> dict[str, Any]:
     """Edit a punch-out timestamp directly in the DB (demo tamper) and return what changed."""
     if seq is None:
-        row = conn.execute("SELECT * FROM events WHERE worker_id=? AND type='punch.out' ORDER BY seq DESC LIMIT 1",
-                           (worker_id,)).fetchone()
+        row = conn.execute("SELECT * FROM events WHERE worker_id=? AND type=? ORDER BY seq DESC LIMIT 1",
+                           (worker_id, events.PUNCH_OUT)).fetchone()
     else:
         row = conn.execute("SELECT * FROM events WHERE seq=?", (seq,)).fetchone()
     if not row:

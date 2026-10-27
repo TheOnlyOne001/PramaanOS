@@ -38,13 +38,13 @@ it is public on purpose.
 
 | Asset | Threat | Control | Where |
 |---|---|---|---|
-| Overtime consent | Supervisor or co-worker "accepts" for a worker | Consent only with the owning worker's token; signed with her key | `auth.POLICY` (`consent_owner`), `pay.py` |
+| Overtime consent | Supervisor or co-worker "accepts" for a worker | Consent only with the owning worker's token; signed with her key | `auth.POLICY` (`consent_owner`), `pay/overtime.py` |
 | Payslips, receipts, access log | Worker or staff browsing someone else's record | Worker-self rules; receipts readable only by the worker and the auditor | `auth.POLICY` (`self`) |
 | Record look-ups | Staff hide who opened a record | Viewer and role are overwritten from the token before the handler | `AuthMiddleware` (lookup rewrite) |
 | Payroll run, daily root publishing | Unauthorised run or premature publish | HR-only routes | `auth.POLICY` |
-| Anonymous grievances | Employer links a report to a worker | Relay takes no token, strips `Authorization`/`Cookie`, stores no worker id; blind-signed tokens | `AuthMiddleware`, `voice.py` |
+| Anonymous grievances | Employer links a report to a worker | Relay takes no token, strips `Authorization`/`Cookie`, stores no worker id; blind-signed tokens | `AuthMiddleware`, `voice/relay.py` |
 | Bearer tokens | Forgery, role escalation, replay after expiry | HMAC-SHA256 over the whole payload, constant-time compare, `exp` checked | `auth.verify_token` |
-| Edge events | Fake camera events | Ed25519 signature of the registered box | `edge.py` |
+| Edge events | Fake camera events | Ed25519 signature of the registered box | `edge/ingest.py`, `edge/privacy.py` |
 | Ledger | Silent DB edits | Hash chain + Merkle roots, worker-held receipts | `ledger.py` |
 | Browser | XSS, clickjacking, MIME sniffing, caching of personal data | Strict CSP (no inline script), `X-Frame-Options: DENY`, `nosniff`, `no-referrer`, `Cache-Control: no-store` on `/api` | `app.py` |
 | Unknown / new routes | Forgotten endpoint left open | Deny by default (`401`/`403` without a policy row) | `auth.match` |

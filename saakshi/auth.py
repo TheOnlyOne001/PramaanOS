@@ -22,11 +22,13 @@ import json
 import os
 import re
 import time
+from typing import NotRequired, TypedDict, cast
 from urllib.parse import parse_qs
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from starlette.responses import JSONResponse
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from . import config, state
 
@@ -46,7 +48,8 @@ EMPLOYER = ("supervisor", "hr", "auditor")
 W = r"(?P<wid>[A-Za-z0-9_-]+)"
 
 POLICY: list[tuple[str, str, tuple[str, ...]]] = [
-    # Public: site info, rules, recruiters verifying a credential, signed edge box, anonymous relay.
+    # Public: liveness, site info, rules, recruiters verifying a credential, signed edge box, anonymous relay.
+    ("GET", r"/healthz", PUBLIC),                    # load balancer probe: counts only, no worker data
     ("GET", r"/site", PUBLIC),
     ("GET", r"/rules", PUBLIC),
     ("GET", r"/voice/topics", PUBLIC),
@@ -99,10 +102,20 @@ POLICY: list[tuple[str, str, tuple[str, ...]]] = [
 ]
 _COMPILED = [(m, re.compile(p + r"/?"), roles) for m, p, roles in POLICY]
 
-_current: contextvars.ContextVar[dict | None] = contextvars.ContextVar("saakshi_principal", default=None)
 
 
-def current() -> dict | None:
+class Principal(TypedDict):
+    """A verified token payload: who is calling (`sub`), their role, expiry and, for workers, `wid`."""
+    sub: str
+    role: str
+    exp: int
+    wid: NotRequired[str]
+
+
+_current: contextvars.ContextVar[Principal | None] = contextvars.ContextVar("saakshi_principal", default=None)
+
+
+def current() -> Principal | None:
     """The verified principal for this request (None when auth is off or the route is public)."""
     return _current.get()
 
@@ -132,7 +145,7 @@ def issue_token(role: str, sub: str | None = None, wid: str | None = None, ttl: 
     """Issue an HMAC-signed bearer token for a role (worker tokens require a wid)."""
     if role not in ROLES:
         raise ValueError("unknown role")
-    payload = {"sub": sub or wid or DEFAULT_SUB[role], "role": role, "exp": int(time.time()) + ttl}
+    payload: Principal = {"sub": sub or wid or DEFAULT_SUB[role], "role": role, "exp": int(time.time()) + ttl}
     if role == "worker":
         if not wid:
             raise ValueError("worker token needs a wid")
@@ -142,7 +155,7 @@ def issue_token(role: str, sub: str | None = None, wid: str | None = None, ttl: 
     return f"{body}.{sig}"
 
 
-def verify_token(token: str) -> dict | None:
+def verify_token(token: str) -> Principal | None:
     """Return the token payload if signature, role and expiry are valid, else None."""
     try:
         body, sig = token.split(".")
@@ -154,13 +167,13 @@ def verify_token(token: str) -> dict | None:
             return None
         if p["role"] == "worker" and not p.get("wid"):
             return None
-        return p
-    except Exception:
+        return cast(Principal, p)
+    except Exception:  # any malformed token is simply "not authenticated"
         return None
 
 
 # --- policy evaluation ----------------------------------------------------------------------------
-def match(method: str, path: str):
+def match(method: str, path: str) -> tuple[tuple[str, ...], re.Match[str]] | tuple[None, None]:
     """Return (roles, regex match) for the first policy rule matching method and path, else (None, None)."""
     method = "GET" if method == "HEAD" else method
     for m, rx, roles in _COMPILED:
@@ -176,12 +189,12 @@ def _owns_request(rid: str, wid: str) -> bool:
         return any(r.get("request_id") == rid for r in pay.list_requests(worker_id=wid))
 
 
-def allowed(roles, mm, p: dict, query: dict, body: dict | None) -> bool:
+def allowed(roles: tuple[str, ...], mm: re.Match[str], p: Principal, query: dict[str, list[str]], body: object) -> bool:
     """Return True if the caller's role, self-access or consent ownership satisfies the rule."""
     role, wid = p["role"], p.get("wid")
     if role in roles:
         return True
-    if role != "worker":
+    if role != "worker" or not wid:
         return False
     g = mm.groupdict()
     if "self" in roles and g.get("wid") == wid:
@@ -199,10 +212,10 @@ _BODY_RULES = {"body_self"}
 class AuthMiddleware:
     """Pure ASGI middleware: authenticates the bearer token and applies POLICY before any handler."""
 
-    def __init__(self, app):
+    def __init__(self, app: ASGIApp) -> None:
         self.app = app
 
-    async def __call__(self, scope, receive, send):
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http" or not config.AUTH_ENABLED or not scope["path"].startswith("/api/"):
             return await self.app(scope, receive, send)
         path = scope["path"][4:]
@@ -219,11 +232,12 @@ class AuthMiddleware:
         if p is None:
             return await JSONResponse({"detail": "authentication required"}, 401,
                                       headers={"WWW-Authenticate": "Bearer"})(scope, receive, send)
-        if roles is None:
+        if roles is None or mm is None:
             return await JSONResponse({"detail": "no access policy for this route"}, 403)(scope, receive, send)
 
         is_lookup = scope["method"] == "POST" and path.rstrip("/").endswith("/lookup")
-        body_bytes, body = None, None
+        body_bytes: bytes | None = None
+        body: object = None
         if is_lookup or (_BODY_RULES & set(roles) and p["role"] == "worker"):
             body_bytes = await _read_body(receive)
             try:
@@ -252,8 +266,8 @@ class AuthMiddleware:
             _current.reset(tok)
 
 
-async def _read_body(receive) -> bytes:
-    chunks = []
+async def _read_body(receive: Receive) -> bytes:
+    chunks: list[bytes] = []
     while True:
         msg = await receive()
         if msg["type"] == "http.request":
@@ -265,10 +279,11 @@ async def _read_body(receive) -> bytes:
     return b"".join(chunks)
 
 
-def _replay(data: bytes, receive):
+def _replay(data: bytes, receive: Receive) -> Receive:
+    """A receive() that yields the already-read body once, then defers to the real one."""
     sent = False
 
-    async def _receive():
+    async def _receive() -> Message:
         nonlocal sent
         if not sent:
             sent = True
@@ -288,7 +303,7 @@ class DemoLogin(BaseModel):
 
 
 @router.post("/auth/demo-login")  # demo-only; see SECURITY.md
-def demo_login(body: DemoLogin):
+def demo_login(body: DemoLogin) -> dict[str, str | int]:
     """Demo only. Production: phone OTP or a PIN on a shared line phone (workers), SSO (staff)."""
     if not config.DEMO_MODE:
         raise HTTPException(404, "demo login is disabled (SAAKSHI_DEMO=0); use the production sign-in")

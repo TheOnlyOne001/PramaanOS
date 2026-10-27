@@ -38,12 +38,12 @@ UI-string check; it skips without it.
 | Module | Cover |
 | --- | --- |
 | `crypto.py` | 99 % |
-| `passport.py` | 97 % |
+| `passport/` | 97 % |
 | `ledger.py` | 96 % |
 | `console.py` | 95 % |
-| `edge.py` | 93 % |
-| `voice.py` | 93 % |
-| `pay.py` | 92 % |
+| `edge/` | 93 % |
+| `voice/` | 93 % |
+| `pay/` | 92 % |
 | `voice_client.py` | 91 % |
 | `i18n.py` | 90 % |
 | `seed.py` | 89 % |

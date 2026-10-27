@@ -5,7 +5,7 @@
  *   await SaakshiVoice.report("water", "Drinking water runs out by 3 pm on our floor", "ta")
  *
  * The issuer sees the worker id and blinded numbers only; the relay sees a token and text but no worker id.
- * FDH must match saakshi/voice_client.py byte for byte:
+ * FDH must match saakshi/voice/blind.py byte for byte:
  *   FDH(m) = int(MGF1-SHA256("saakshi-voice|" + month + "|" + topic + "|" + m, len(n))) mod n
  * Unspent tokens are kept in localStorage per worker and month (falls back to memory).
  */

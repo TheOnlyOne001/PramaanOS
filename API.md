@@ -12,6 +12,13 @@ An event dict looks like:
 `{seq, site, ts, day, type, worker_id, payload, prev_hash, hash, sig, signer, ref, receipt}`
 where `ref` is the first 4 hex chars of the hash, upper case, and `receipt` is
 `{worker_id, seq, ref, ts, type, hash, text, text_en, lang, channel}` or null.
+These shapes are typed in `saakshi/ledger.py` (`Event`, `Receipt`, `VerifyResult`), and every `type`
+string is a constant in `saakshi/events.py` (`events.PUNCH_IN == "punch.in"`, …): import it, don't retype it.
+
+Errors: `HTTPException`s return `{detail}` with their status. Anything unhandled returns
+`500 {"error": "internal_error", "request_id"}` (also sent as the `X-Request-ID` header) and is logged
+with that id; no stack trace ever reaches the client. Send your own `X-Request-ID` (8–64 chars of
+`A-Za-z0-9._-`) to have it reused.
 
 ## Authentication — `saakshi/auth.py`
 
@@ -23,7 +30,7 @@ the threat model are in [SECURITY.md](SECURITY.md). 401 = missing, bad or expire
 | --- | --- | --- | --- |
 | POST | /auth/demo-login | `{role:"worker"\|"supervisor"\|"hr"\|"auditor", worker_id?}` | `{token, role, sub, wid?, exp}` — demo only (404 when `SAAKSHI_DEMO=0`); production uses phone OTP or a PIN on a shared phone |
 
-Public (no token): `GET /site`, `GET /rules`, `GET /voice/topics`, `POST /relay/voice/reports`
+Public (no token): `GET /healthz`, `GET /site`, `GET /rules`, `GET /voice/topics`, `POST /relay/voice/reports`
 (anonymous by design), `GET /passport/issuers`, `GET /passport/status`,
 `GET /passport/credentials/{id}` and `/qr`, `POST /edge/events` (box-signed), `/demo/*` (demo mode only).
 
@@ -31,6 +38,7 @@ Public (no token): `GET /site`, `GET /rules`, `GET /voice/topics`, `POST /relay/
 
 | Method | Path | Body / query | Returns |
 | --- | --- | --- | --- |
+| GET | /healthz | | `{ok:true, events, ledger_ok}` — public liveness probe; `ledger_ok` is the cached `/ledger/verify` result, no worker data |
 | GET | /site | | `{site_id, name, state, demo_day, now, n_events, public_keys:{site, site-issuer, edge-box-1}}` |
 | GET | /workers | | `[worker]` where worker = `{id, name, lang, role, line, operation, skill_band, gender, contract_type, contractor, joined, active, is_supervisor}` |
 | GET | /workers/{id} | | worker |
@@ -51,7 +59,7 @@ Public (no token): `GET /site`, `GET /rules`, `GET /voice/topics`, `POST /relay/
 
 Python helper for modules: `from saakshi.core_api import log_access` → `log_access(worker_id, viewer, reason, what)`.
 
-## Pay and overtime — `saakshi/pay.py`
+## Pay and overtime — `saakshi/pay/`
 
 Event types: `ot.request`, `ot.cap_check`, `ot.consent`, `pay.run`, `ot.opening_balance`
 (payload `{quarter:"2026-Q4", hours, source}` — quarter-to-date OT imported at install).
@@ -69,7 +77,7 @@ Event types: `ot.request`, `ot.cap_check`, `ot.consent`, `pay.run`, `ot.opening_
 | POST | /pay/run | `?period=2026-10` | `{period, blocked, results:[{worker_id, name, gross, net, blocked, failed_checks:[str]}]}` appends `pay.run` per worker |
 | GET | /pay/fairness | `period` | `{period, checks:[{name, ok, detail, workers:[wid]}], ot_gini}` — the 8 fairness checks |
 
-## Voice: anonymous, verifiable feedback — `saakshi/voice.py`
+## Voice: anonymous, verifiable feedback — `saakshi/voice/`
 
 Blind RSA signatures, one issuer key per topic per month. Unlinkable by construction.
 
@@ -87,7 +95,7 @@ Blind RSA signatures, one issuer key per topic per month. Unlinkable by construc
 JS client for the worker app: `web/shared/voice-client.js` exposes
 `window.SaakshiVoice = { getTokens(workerId), report(topic, text, lang) }`.
 
-## Skill passport — `saakshi/passport.py`
+## Skill passport — `saakshi/passport/`
 
 | Method | Path | Body / query | Returns |
 | --- | --- | --- | --- |
@@ -102,7 +110,7 @@ JS client for the worker app: `web/shared/voice-client.js` exposes
 
 Event types: `production.count`, `credential.issued`, `credential.revoked`.
 
-## Edge camera events — `saakshi/edge.py`
+## Edge camera events — `saakshi/edge/`
 
 | Method | Path | Body / query | Returns |
 | --- | --- | --- | --- |

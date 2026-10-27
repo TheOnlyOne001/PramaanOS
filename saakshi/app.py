@@ -1,17 +1,19 @@
-"""FastAPI app: API routers plus the static worker app, employer console and verify page."""
+"""FastAPI app: API routers plus the landing page, worker app, employer console and verify page."""
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager, suppress
 
-from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, Request, Response
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import RequestResponseEndpoint
 
-from . import auth, config, console, core_api, edge, passport, pay, seed, state, voice
+from . import auth, config, console, core_api, edge, errors, passport, pay, seed, state, voice
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Seed demo data on startup when AUTOSEED is on and no workers exist."""
     st = state.get()
     if config.AUTOSEED and st.conn.execute("SELECT COUNT(*) FROM workers").fetchone()[0] == 0:
@@ -20,6 +22,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Saakshi", description="Shared, tamper-evident work records", lifespan=lifespan)
+errors.install(app)  # unhandled exceptions → JSON 500 with a request id, never a traceback
 # Deny-by-default authorization (policy table in saakshi/auth.py). Added first so the security-headers
 # middleware below wraps it and 401/403 responses carry the same headers.
 app.add_middleware(auth.AuthMiddleware)
@@ -30,7 +33,7 @@ CSP = ("default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' 
 
 
 @app.middleware("http")
-async def security_headers(request: Request, call_next):
+async def security_headers(request: Request, call_next: RequestResponseEndpoint) -> Response:
     """Add CSP and other security headers to responses; mark API responses no-store."""
     resp = await call_next(request)
     if not request.url.path.startswith(("/docs", "/redoc", "/openapi.json")):
@@ -47,19 +50,26 @@ async def security_headers(request: Request, call_next):
 for m in (auth, core_api, pay, voice, passport, edge, console):
     app.include_router(m.router)
 
-for name in ("worker", "console", "verify", "shared"):
+for name in ("worker", "console", "verify", "shared", "landing"):  # landing: assets of web/index.html
     d = config.WEB / name
     with suppress(OSError):
         d.mkdir(parents=True, exist_ok=True)
     app.mount(f"/{name}", StaticFiles(directory=str(d), html=True), name=name)
 
 
-@app.get("/", response_class=HTMLResponse)
-def index():
-    """Return the landing page HTML that links to the app's front ends."""
-    return """<!doctype html><html lang=en><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
+INDEX_HTML = config.WEB / "index.html"
+# Served only when web/index.html is missing (e.g. a trimmed deployment), so `/` never 404s.
+FALLBACK_INDEX = """<!doctype html><html lang=en><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
 <title>Saakshi</title><style>body{font:16px system-ui;max-width:560px;margin:40px auto;padding:0 16px}
 a{display:block;padding:14px;margin:10px 0;border:1px solid #ccc;border-radius:10px;text-decoration:none}</style>
 <h1>Saakshi · சாட்சி</h1><p>Shared, tamper-evident work records.</p>
 <a href="/worker/?w=W001">Worker app (Meena)</a><a href="/console/">Employer console</a>
 <a href="/verify/">Verify a skill credential</a><a href="/docs">API docs</a>"""
+
+
+@app.get("/", response_class=HTMLResponse)
+def index() -> Response:
+    """Serve the landing page (web/index.html), falling back to a minimal built-in page of links."""
+    if INDEX_HTML.is_file():
+        return FileResponse(INDEX_HTML, media_type="text/html; charset=utf-8")
+    return HTMLResponse(FALLBACK_INDEX)

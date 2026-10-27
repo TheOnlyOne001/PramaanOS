@@ -1,11 +1,12 @@
 # PramaanOS · Saakshi (சாட்சி, "witness")
 
 [![ci](https://github.com/TheOnlyOne001/PramaanOS/actions/workflows/ci.yml/badge.svg)](https://github.com/TheOnlyOne001/PramaanOS/actions/workflows/ci.yml)
-![tests](https://img.shields.io/badge/tests-191%20passing-brightgreen)
-![coverage](https://img.shields.io/badge/coverage-93%25-brightgreen)
+![tests](https://img.shields.io/badge/tests-210%20passing-brightgreen)
+![coverage](https://img.shields.io/badge/coverage-95%25-brightgreen)
 ![a11y](https://img.shields.io/badge/WCAG%202.1%20AA-0%20axe%20violations-blue)
 ![lint](https://img.shields.io/badge/ruff-strict%2C%200%20issues-success)
 ![docstrings](https://img.shields.io/badge/public%20API%20docstrings-100%25-success)
+![mypy](https://img.shields.io/badge/mypy-0%20errors-success)
 ![SDG 8](https://img.shields.io/badge/UN%20SDG-8%20Decent%20Work-a21942)
 
 **Shared, tamper-evident, privacy-preserving work records that workers and employers both hold.**
@@ -65,25 +66,25 @@ with a reason and an approver, never overwrites.
 Tamil, Hindi, Odia or English (`வருகை 08:02 · குறிப்பு 7F3A`). The worker's copy is checked against
 the employer's record, so a silent edit shows up on her phone.
 
-**Fair Pay (`pay.py`).** Deterministic arithmetic, never an LLM: overtime at 2 × (Basic+DA)/26/8,
+**Fair Pay (`saakshi/pay/`).** Deterministic arithmetic, never an LLM: overtime at 2 × (Basic+DA)/26/8,
 a 144 h quarterly cap with a near-cap warning, fatigue limits, consent signed with the worker's
 key, PF and ESI, and a 50% deduction cap. Nine fairness checks run on every pay run: ledger
 integrity, minimum wage, overtime paid right, deduction cap, PF deposits vs deductions, equal pay
 within band, contract vs permanent, overtime spread (Gini) and fatigue. The payslip is explained
 in the worker's language and is held if any of her records fails verification.
 
-**Anonymous voice (`voice.py`).** Blind RSA signatures (RFC 9474 style) with one issuer key per
+**Anonymous voice (`saakshi/voice/`).** Blind RSA signatures (RFC 9474 style) with one issuer key per
 topic per month and a nullifier per topic, so each worker speaks once per topic and the issuer
 cannot link a report to a person. A relay stores no identity, IP or exact time. A theme reaches
 management at 3 independent reports. Safety, heat and harassment escalate at once, and harassment
 points to the POSH Internal Committee. Management answers on a "You said, we did" board.
 
-**Skill passport (`passport.py`, `web/verify/`).** Production counts feed a versioned rules table.
+**Skill passport (`saakshi/passport/`, `web/verify/`).** Production counts feed a versioned rules table.
 When a worker meets it, a W3C-VC-shaped credential is signed and sent to her. The QR carries the
 whole credential, which any employer can verify offline in the browser. Includes a revocation
 list, expiring safety inductions and job-description matching.
 
-**Edge safety (`edge.py`).** The camera box signs each event. A recursive privacy guard rejects
+**Edge safety (`saakshi/edge/`).** The camera box signs each event. A recursive privacy guard rejects
 anything that looks like an image, face, video, embedding or person identity, so only zone, kind,
 count and time leave the site.
 
@@ -178,7 +179,7 @@ python3 scripts/demo.py --base http://localhost:8000 --db data/saakshi.db --paus
 | Area | What we did | Evidence |
 | --- | --- | --- |
 | **Security** | Signed ledger; deny-by-default role policy; strict CSP and security headers; validated inputs; anonymous relay strips identity; demo tools switch off in production | [SECURITY.md](SECURITY.md) · `test_security.py` |
-| **Testing** | 191 tests, 93% coverage: property-based tamper tests (any single-row edit is caught), API contract test, security policy, cache invalidation, all four languages complete, the full demo as an end-to-end test; CI gate on coverage | [docs/TESTING.md](docs/TESTING.md) |
+| **Testing** | 210 tests, 95% coverage: property-based tamper tests (any single-row edit is caught), API contract test, security policy, cache invalidation, all four languages complete, the full demo as an end-to-end test; CI gate on coverage | [docs/TESTING.md](docs/TESTING.md) |
 | **Efficiency** | Verification cached on a write fingerprint that any edit moves, and only new events re-checked; pay and console memoised. On 20k events: console overview 19.8 s → 5.7 ms, payslip 1.2 s → 0.9 ms (cache hits; first view after a write ≈ 1.2 s) | [docs/PERFORMANCE.md](docs/PERFORMANCE.md) · `scripts/bench.py` |
 | **Accessibility** | 0 axe-core WCAG 2.1 AA violations on audited pages; skip links; dialog focus management; 44 px targets; status shown by icon and word, never colour alone; reduced motion; four languages with read-aloud | Screenshots · `web/` |
 | **Code quality** | One module per engine behind a written [API contract](API.md); strict ruff rule set (bugbear, bandit, isort, pyupgrade, simplify, pylint, perflint) clean; `make check`, pre-commit hooks, editorconfig, [CONTRIBUTING.md](CONTRIBUTING.md); CI runs lint, tests and the demo on every push | `Makefile` · `.github/workflows/ci.yml` |
@@ -210,9 +211,11 @@ toilet-break tracking, keystroke logging, individual leaderboards, union-activit
 
 | Gate | Tool | Standard |
 | --- | --- | --- |
-| Lint | ruff: bugbear, bandit, isort, pyupgrade, simplify, pylint, perflint, pydocstyle | 0 issues |
-| Tests | pytest + Hypothesis | 191 passing |
-| Coverage | pytest-cov | 93%, CI fails below 83% |
+| Lint (Python) | ruff: bugbear, bandit, isort, pyupgrade, simplify, pylint, perflint, pydocstyle | 0 issues |
+| Lint (JS) | ESLint 9 recommended + eqeqeq, prefer-const, no-var (`eslint.config.mjs`) | 0 issues |
+| Types | mypy (`check_untyped_defs`, strict equality) over all 62 modules | 0 errors |
+| Tests | pytest + Hypothesis | 210 passing |
+| Coverage | pytest-cov | 95%, CI fails below 83% |
 | Contract | `test_contract.py` | Every route documented in API.md |
 | End to end | `test_e2e_demo.py` | All 7 demo steps pass |
 | Accessibility | axe-core | 0 WCAG 2.1 AA violations on audited pages |
@@ -233,12 +236,20 @@ serverless notes.
 ## Repository layout
 
 ```
-saakshi/        FastAPI backend: ledger, auth, pay, voice, passport, edge, console, i18n
-web/worker/     worker app (mobile, 4 languages, read-aloud)
-web/console/    employer console (exceptions first)
+saakshi/        FastAPI backend, fully typed (mypy clean)
+  ledger.py       signed hash chain, daily Merkle roots, cached + incremental verify
+  auth.py         bearer tokens, deny-by-default role policy
+  events.py       event-type constants · errors.py  JSON 500s with request ids
+  pay/            rules · shifts · limits · overtime · wages · payslips · audit · api
+  voice/          blind · keys · issuer · relay · publication · scrubber · api
+  passport/       rules · evidence · vc · credentials · status · coverage · matching · api
+  edge/           cameras · privacy · ingest · reports · api
+web/index.html  landing page
+web/worker/     worker app: app.js entry + screens/ (today, pay, hours, skills, voice, rights)
+web/console/    employer console: app.js entry + sections/ + modals, router, integrity
 web/verify/     offline credential verifier
 web/shared/     i18n strings, API helper, voice client, design tokens
-tests/          191 pytest tests (unit, property-based, contract, security, perf, e2e)
+tests/          210 pytest tests (unit, property-based, contract, security, perf, e2e)
 scripts/        demo.py · tamper.py · edge_sim.py · bench.py
 docs/           PERFORMANCE.md · TESTING.md · screenshots/
 ```

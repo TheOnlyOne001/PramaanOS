@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Saakshi · work records both sides can trust</title>
+  <meta name="description" content="Saakshi (சாட்சி, witness): signed, tamper-evident work records that workers and employers both hold. Built for SDG 8 in India's labour-intensive workplaces.">
+  <meta name="theme-color" content="#0b6b68">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Tamil:wght@600;700&display=swap">
+  <link rel="stylesheet" href="/shared/tokens.css">
+  <link rel="stylesheet" href="/landing/landing.css">
+  <script type="module" src="/landing/landing.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <div class="wrap header-row">
+      <a class="brand" href="/" aria-label="Saakshi home">
+        <span class="brand-mark" aria-hidden="true">◆</span>
+        <span class="brand-name">Saakshi</span>
+        <span class="brand-ta" lang="ta">சாட்சி</span>
+      </a>
+      <nav aria-label="Primary">
+        <ul class="nav-links">
+          <li><a href="#how">How it works</a></li>
+          <li><a href="#features">Features</a></li>
+          <li><a href="#demo">Demo</a></li>
+          <li><a href="https://github.com/TheOnlyOne001/PramaanOS" rel="noopener">GitHub</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main" tabindex="-1">
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="wrap hero-grid">
+        <div class="hero-copy">
+          <p class="eyebrow">UN SDG 8 · Decent work · Tiruppur, Tamil Nadu</p>
+          <h1 id="hero-title">Saakshi <span class="dash" aria-hidden="true">—</span><span class="sr"> - </span> work records both sides can trust</h1>
+          <p class="lede">Every punch, overtime consent and production count is signed where it happens and chained into a ledger.
+            The worker gets her own receipt, in her own language, so nobody can quietly rewrite the record.</p>
+          <div class="cta-row">
+            <a class="btn btn-primary" href="/worker/?w=W001"><span aria-hidden="true">📱</span> Open worker app</a>
+            <a class="btn btn-primary btn-alt" href="/console/"><span aria-hidden="true">🖥️</span> Open employer console</a>
+          </div>
+          <ul class="sub-links">
+            <li><a href="/verify/">Verify a credential</a></li>
+            <li><a href="/docs">API docs</a></li>
+            <li><a href="https://github.com/TheOnlyOne001/PramaanOS" rel="noopener">Source on GitHub</a></li>
+          </ul>
+        </div>
+
+        <figure class="hero-receipt" aria-label="Example receipt on the worker's phone">
+          <div class="receipt-phone">
+            <div class="receipt-top"><span class="avatar" aria-hidden="true">M</span><span><b lang="ta">வணக்கம் மீனா</b><small>W001 · Overlock operator</small></span></div>
+            <div class="receipt-chat">
+              <p class="bubble"><span lang="ta">வருகை 08:02 · குறிப்பு 7F3A</span><small>Punch in 08:02 · ref 7F3A</small><span class="ticks" aria-hidden="true">✓✓</span></p>
+              <p class="bubble"><span lang="ta">கூடுதல் நேரம் 2 மணி · ஒப்புதல்</span><small>Overtime 2 h at 2× · consent signed</small><span class="ticks" aria-hidden="true">✓✓</span></p>
+              <p class="bubble alert"><span>⚠ Record changed after signing</span><small>Her receipt no longer matches the employer's copy. Payslip held.</small></p>
+            </div>
+          </div>
+          <figcaption class="muted">Her copy is checked against the employer's. A silent edit shows up on her phone.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="trust" aria-labelledby="trust-title">
+      <div class="wrap">
+        <h2 id="trust-title" class="sr">Live ledger status</h2>
+        <dl class="trust-strip" id="trust" aria-busy="true" aria-live="polite">
+          <div class="trust-item"><dt>Site</dt><dd id="trustSite">Loading…</dd></div>
+          <div class="trust-item"><dt>Signed events</dt><dd id="trustEvents">—</dd></div>
+          <div class="trust-item"><dt>Site public key (Ed25519)</dt><dd><code id="trustKey">—</code></dd></div>
+          <div class="trust-item"><dt>Status</dt><dd id="trustStatus"><span class="chip neutral">Checking…</span></dd></div>
+        </dl>
+      </div>
+    </section>
+
+    <section id="how" class="section" aria-labelledby="how-title">
+      <div class="wrap">
+        <h2 id="how-title">How it works</h2>
+        <p class="section-lede">Four steps turn a punch at the gate into a record that neither side can rewrite.</p>
+        <ol class="steps">
+          <li class="step">
+            <span class="step-n" aria-hidden="true">1</span>
+            <h3>Signed at the source</h3>
+            <p>The gate device, the supervisor's request and the camera box each sign their event with Ed25519 before it is stored.</p>
+          </li>
+          <li class="step">
+            <span class="step-n" aria-hidden="true">2</span>
+            <h3>Hash chain and a daily root</h3>
+            <p>Every event carries the hash of the one before. A Merkle root is published each day, so a single edited row breaks the chain.</p>
+          </li>
+          <li class="step">
+            <span class="step-n" aria-hidden="true">3</span>
+            <h3>A receipt in her language</h3>
+            <p>The worker gets a WhatsApp-style receipt in Tamil, Hindi, Odia or English, and her copy is checked against the employer's.</p>
+          </li>
+          <li class="step">
+            <span class="step-n" aria-hidden="true">4</span>
+            <h3>Engines work from the record</h3>
+            <p>Pay, overtime caps, fairness checks, skill credentials and the SDG 8 scorecard are computed from the same signed events.</p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <section id="features" class="section alt" aria-labelledby="features-title">
+      <div class="wrap">
+        <h2 id="features-title">What it does</h2>
+        <ul class="features">
+          <li class="feature">
+            <svg class="f-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2v20M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            <h3>Fair Pay</h3>
+            <p>Deterministic pay from signed hours: overtime at 2×, a 144 h quarterly cap and nine fairness checks, explained in her language.</p>
+          </li>
+          <li class="feature">
+            <svg class="f-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6l-8-3z"/><path d="M12 8v5M12 16.5v.5"/></svg>
+            <h3>Live tamper test</h3>
+            <p>Edit a punch straight in SQLite and both apps flag it within seconds. Her payslip is held until it is resolved.</p>
+          </li>
+          <li class="feature">
+            <svg class="f-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12v-2a8 8 0 0 1 16 0v2"/><rect x="3" y="12" width="5" height="8" rx="2"/><rect x="16" y="12" width="5" height="8" rx="2"/></svg>
+            <h3>Anonymous voice</h3>
+            <p>Blind-signature tokens and an identity-free relay. A theme reaches management only at three independent reports.</p>
+          </li>
+          <li class="feature">
+            <svg class="f-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 9 5-9 5-9-5 9-5z"/><path d="M7 10.5V16c0 1.5 2.5 3 5 3s5-1.5 5-3v-5.5"/></svg>
+            <h3>Skill passport</h3>
+            <p>Production data issues a signed, W3C-VC-shaped credential. Any employer can verify its QR offline in the browser.</p>
+          </li>
+          <li class="feature">
+            <svg class="f-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="13" height="10" rx="2"/><path d="m16 11 5-3v8l-5-3"/><path d="M3 3l18 18"/></svg>
+            <h3>Edge privacy</h3>
+            <p>The camera box sends events and counts only. Anything that looks like a face, image or identity is rejected.</p>
+          </li>
+          <li class="feature">
+            <svg class="f-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/></svg>
+            <h3>SDG 8 scorecard</h3>
+            <p>Live indicators for targets 8.2 to 8.8, each computed from the signed ledger and linked to its evidence.</p>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="shots-title">
+      <div class="wrap">
+        <h2 id="shots-title">The moment a record is edited</h2>
+        <p class="section-lede">One SQL update to Meena's punch-out. The console raises an integrity alert, and her phone shows that her receipt disagrees.</p>
+        <div class="shots">
+          <figure class="shot shot-wide">
+            <img src="/landing/img/c-tampered.jpg" width="1200" height="900" loading="lazy" decoding="async"
+              alt="Employer console showing a red integrity alert: Meena's punch-out was edited after signing and payroll for her is blocked.">
+            <figcaption>Employer console: integrity alert, payroll blocked</figcaption>
+          </figure>
+          <figure class="shot shot-phone">
+            <img src="/landing/img/w-tampered.jpg" width="600" height="1100" loading="lazy" decoding="async"
+              alt="Meena's worker app in Tamil with a red banner saying her record was changed after signing.">
+            <figcaption>Meena's app: her receipt proves it</figcaption>
+          </figure>
+          <figure class="shot shot-wide">
+            <img src="/landing/img/c-sdg8.jpg" width="1200" height="753" loading="lazy" decoding="async"
+              alt="SDG 8 scorecard with cards for targets 8.2, 8.3, 8.5, 8.6, 8.7 and 8.8 and their current status.">
+            <figcaption>SDG 8 scorecard, computed from the ledger</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <section id="demo" class="section alt" aria-labelledby="demo-title">
+      <div class="wrap demo-grid">
+        <div>
+          <h2 id="demo-title">Try the 3-minute demo</h2>
+          <p class="section-lede">Open both apps side by side. The console's <b>🧪 Demo</b> panel drives each step.</p>
+          <div class="cta-row">
+            <a class="btn btn-primary" href="/console/">Start in the console</a>
+            <a class="btn" href="/worker/?w=W001">Meena's app</a>
+          </div>
+        </div>
+        <ol class="demo-steps">
+          <li><b>Punch in.</b> Meena punches in and gets a receipt in Tamil.</li>
+          <li><b>Overtime.</b> Her supervisor asks for 2 h. The console warns that co-workers are near the cap. She accepts by voice, and her consent is signed.</li>
+          <li><b>Live tamper test.</b> Press “Tamper” in the console. The chain, the daily root and her receipt all disagree, and her payslip is held.</li>
+          <li><b>Anonymous report.</b> She reports that drinking water runs out. Corroborated reports reach the console with no identity attached.</li>
+          <li><b>Skill credential.</b> Her quality data issues a credential, and anyone can verify its QR offline.</li>
+          <li><b>SDG 8 scorecard.</b> Every indicator links back to its signed evidence.</li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="sdg-title">
+      <div class="wrap">
+        <h2 id="sdg-title">SDG 8 targets we measure</h2>
+        <ul class="sdg-row">
+          <li><span class="sdg-t">8.2</span><span>Productivity: line efficiency</span></li>
+          <li><span class="sdg-t">8.3</span><span>Formalisation: workers holding their own signed record</span></li>
+          <li><span class="sdg-t">8.5</span><span>Minimum wage and equal pay</span></li>
+          <li><span class="sdg-t">8.6</span><span>Skills: credentials per worker-year</span></li>
+          <li><span class="sdg-t">8.7</span><span>No forced labour: overtime with signed consent</span></li>
+          <li><span class="sdg-t">8.8</span><span>Safe work: near-misses logged, reports answered</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="section alt" aria-labelledby="red-title">
+      <div class="wrap">
+        <h2 id="red-title">Red lines: what we refuse to build</h2>
+        <p class="section-lede">Records protect workers only if the system cannot be turned into surveillance.</p>
+        <ul class="red-lines">
+          <li><span aria-hidden="true">✕</span> Face recognition for discipline</li>
+          <li><span aria-hidden="true">✕</span> Emotion recognition</li>
+          <li><span aria-hidden="true">✕</span> Toilet-break tracking</li>
+          <li><span aria-hidden="true">✕</span> Keystroke logging</li>
+          <li><span aria-hidden="true">✕</span> Individual leaderboards</li>
+          <li><span aria-hidden="true">✕</span> Union-activity monitoring</li>
+        </ul>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap footer-row">
+      <p><b>Saakshi</b> <span lang="ta">சாட்சி</span> means “witness”. A PramaanOS project for UN SDG 8.</p>
+      <ul class="footer-links">
+        <li><a href="/worker/?w=W001">Worker app</a></li>
+        <li><a href="/console/">Employer console</a></li>
+        <li><a href="/verify/">Verifier</a></li>
+        <li><a href="/docs">API docs</a></li>
+        <li><a href="https://github.com/TheOnlyOne001/PramaanOS" rel="noopener">GitHub</a></li>
+      </ul>
+    </div>
+  </footer>
+</body>
+</html>

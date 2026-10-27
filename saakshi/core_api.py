@@ -1,35 +1,54 @@
-"""Core HTTP API: site, workers, punches, ledger integrity, receipts, access log, demo tools."""
+"""Core HTTP API: health, site, workers, punches, ledger integrity, receipts, access log, demo tools."""
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Any, TypedDict
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field, StringConstraints
 
-from . import config, state
-from .ledger import now_ts
+from . import config, events, state
+from .ledger import Event, InclusionProof, PublishedRoot, RootStatus, VerifyResult, now_ts
 
 router = APIRouter(prefix="/api")
 
 WorkerId = Annotated[str, StringConstraints(pattern=r"^[A-Z]\d{3}$")]
 Ts = Annotated[str, StringConstraints(pattern=r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$")]
 Text = Annotated[str, StringConstraints(max_length=200)]
+PUNCH_TYPES = frozenset({events.PUNCH_IN, events.PUNCH_OUT, events.PUNCH_CORRECTION})
 
 
-def _demo_only():
+def _demo_only() -> None:
     if not config.DEMO_MODE:
         raise HTTPException(404, "demo tools are disabled (SAAKSHI_DEMO=0)")
 
 
-def _worker(wid: str) -> dict:
+def _worker(wid: str) -> dict[str, Any]:
     r = state.get().conn.execute("SELECT * FROM workers WHERE id=?", (wid,)).fetchone()
     if not r:
         raise HTTPException(404, f"unknown worker {wid}")
     return dict(r)
 
 
+class Health(TypedDict):
+    """Liveness probe result."""
+    ok: bool
+    events: int
+    ledger_ok: bool
+
+
+@router.get("/healthz")
+def healthz() -> Health:
+    """Liveness probe: the process answers, how many events it holds, and whether the chain verifies.
+
+    Public and cheap: `ledger_ok` comes from the cached verify() (only new events are re-checked), and
+    nothing about any worker is returned.
+    """
+    st = state.get()
+    return {"ok": True, "events": st.ledger.count(), "ledger_ok": st.ledger.verify()["ok"]}
+
+
 @router.get("/site")
-def site():
+def site() -> dict[str, Any]:
     """Return site metadata, the ledger event count and the public keys."""
     st = state.get()
     return {"site_id": config.SITE_ID, "name": config.SITE_NAME, "state": config.STATE,
@@ -38,14 +57,14 @@ def site():
 
 
 @router.get("/workers")
-def workers():
+def workers() -> list[dict[str, Any]]:
     """List all workers ordered by ID."""
     rows = state.get().conn.execute("SELECT * FROM workers ORDER BY id").fetchall()
     return [dict(r) for r in rows]
 
 
 @router.get("/workers/{wid}")
-def worker(wid: str):
+def worker(wid: str) -> dict[str, Any]:
     """Return one worker's record."""
     return _worker(wid)
 
@@ -61,12 +80,13 @@ class Punch(BaseModel):
 
 
 @router.post("/punch")
-def punch(p: Punch):
+def punch(p: Punch) -> Event:
     """Append a punch-in or punch-out event for a worker to the ledger."""
     _worker(p.worker_id)
     if p.kind not in ("in", "out"):
         raise HTTPException(422, "kind must be 'in' or 'out'")
-    return state.get().ledger.append(f"punch.{p.kind}", {"device": p.device}, worker_id=p.worker_id, ts=p.ts)
+    kind = events.PUNCH_IN if p.kind == "in" else events.PUNCH_OUT
+    return state.get().ledger.append(kind, {"device": p.device}, worker_id=p.worker_id, ts=p.ts)
 
 
 class Correction(BaseModel):
@@ -80,13 +100,13 @@ class Correction(BaseModel):
 
 
 @router.post("/punch/correction")
-def punch_correction(c: Correction):
+def punch_correction(c: Correction) -> Event:
     """The only legitimate way to change a punch: a new signed event with a reason and an approver."""
     st = state.get()
     orig = st.ledger.get(c.corrects_seq)
-    if not orig or orig["worker_id"] != c.worker_id or not orig["type"].startswith("punch."):
+    if not orig or orig["worker_id"] != c.worker_id or orig["type"] not in PUNCH_TYPES:
         raise HTTPException(422, "corrects_seq must be a punch event of this worker")
-    return st.ledger.append("punch.correction", {"corrects_seq": c.corrects_seq, "new_ts": c.new_ts,
+    return st.ledger.append(events.PUNCH_CORRECTION, {"corrects_seq": c.corrects_seq, "new_ts": c.new_ts,
                                                  "reason": c.reason, "approver": c.approver},
                             worker_id=c.worker_id, ts=c.ts)
 
@@ -95,7 +115,7 @@ def punch_correction(c: Correction):
 
 @router.get("/ledger/events")
 def ledger_events(worker_id: str | None = None, type: str | None = None, type_prefix: str | None = None,
-                  day: str | None = None, since_seq: int | None = None, limit: int = 200, desc: bool = True):
+                  day: str | None = None, since_seq: int | None = None, limit: int = 200, desc: bool = True) -> list[Event]:
     """List ledger events matching the given filters (limit capped at 1000)."""
     limit = max(1, min(limit, 1000))
     return state.get().ledger.events(worker_id=worker_id, type=type, type_prefix=type_prefix, day=day,
@@ -103,7 +123,7 @@ def ledger_events(worker_id: str | None = None, type: str | None = None, type_pr
 
 
 @router.get("/ledger/events/{seq}")
-def ledger_event(seq: int):
+def ledger_event(seq: int) -> Event:
     """Return one ledger event by sequence number, or 404."""
     ev = state.get().ledger.get(seq)
     if not ev:
@@ -112,7 +132,7 @@ def ledger_event(seq: int):
 
 
 @router.get("/ledger/events/{seq}/proof")
-def ledger_proof(seq: int):
+def ledger_proof(seq: int) -> InclusionProof:
     """Return the inclusion proof for a ledger event, or 404."""
     p = state.get().ledger.inclusion_proof(seq)
     if not p:
@@ -121,24 +141,24 @@ def ledger_proof(seq: int):
 
 
 @router.get("/ledger/verify")
-def ledger_verify():
+def ledger_verify() -> VerifyResult:
     """Verify the ledger and return the result, adding worker names to problems."""
     st = state.get()
     res = st.ledger.verify()
     names = {r["id"]: r["name"] for r in st.conn.execute("SELECT id, name FROM workers")}
     for p in res["problems"]:
-        p["worker_name"] = names.get(p.get("worker_id"))
+        p["worker_name"] = names.get(p["worker_id"] or "")
     return res
 
 
 @router.get("/ledger/roots")
-def ledger_roots():
+def ledger_roots() -> list[RootStatus]:
     """Return the status of the ledger's daily roots."""
     return state.get().ledger.roots_status()
 
 
 @router.post("/ledger/roots/publish")
-def ledger_publish(day: str | None = None):
+def ledger_publish(day: str | None = None) -> PublishedRoot:
     """Publish the ledger root for a day (default: the demo day)."""
     return state.get().ledger.publish_root(day or config.DEMO_DAY)
 
@@ -146,7 +166,7 @@ def ledger_publish(day: str | None = None):
 # --- Worker wallet: receipts --------------------------------------------------
 
 @router.get("/workers/{wid}/receipts")
-def receipts(wid: str, limit: int = 100):
+def receipts(wid: str, limit: int = 100) -> list[dict[str, Any]]:
     """List a worker's wallet receipts, newest first (limit capped at 500)."""
     _worker(wid)
     limit = max(1, min(limit, 500))
@@ -167,20 +187,20 @@ class ReceiptCheck(BaseModel):
 
 
 @router.post("/workers/{wid}/receipts/check")
-def receipts_check(wid: str, body: ReceiptCheck | None = None):
+def receipts_check(wid: str, body: ReceiptCheck | None = None) -> dict[str, Any]:
     """Compare the worker's copy (receipts) with what the employer's ledger says now."""
     from . import i18n
     from .ledger import receipt_ctx
     st = state.get()
     w = _worker(wid)
+    texts: dict[int, tuple[str, str, str]] = {}
     if body and body.receipts:
         held = [r.model_dump() for r in body.receipts]
-        texts = {}
     else:
         rows = st.conn.execute("SELECT * FROM wallet_receipts WHERE worker_id=?", (wid,)).fetchall()
         held = [{"seq": r["seq"], "hash": r["hash"]} for r in rows]
         texts = {r["seq"]: (r["text"], r["text_en"], r["ref"]) for r in rows}
-    mismatches = []
+    mismatches: list[dict[str, Any]] = []
     for h in held:
         ev = st.ledger.get(h["seq"])
         if ev is None:
@@ -204,13 +224,13 @@ def receipts_check(wid: str, body: ReceiptCheck | None = None):
 
 # --- Access log: every individual look-up is visible to the worker -------------
 
-def log_access(worker_id: str, viewer: str, reason: str, what: str = "record", viewer_role: str = "employer") -> dict:
+def log_access(worker_id: str, viewer: str, reason: str, what: str = "record", viewer_role: str = "employer") -> dict[str, str]:
     """Call this from any endpoint that shows one worker's data to someone else."""
     st = state.get()
     ts = now_ts()
     st.conn.execute("INSERT INTO access_log(ts, viewer, viewer_role, worker_id, reason, what) VALUES (?,?,?,?,?,?)",
                     (ts, viewer, viewer_role, worker_id, reason, what))
-    st.ledger.append("access.lookup", {"viewer": viewer, "viewer_role": viewer_role, "reason": reason, "what": what},
+    st.ledger.append(events.ACCESS_LOOKUP, {"viewer": viewer, "viewer_role": viewer_role, "reason": reason, "what": what},
                      worker_id=worker_id)
     return {"ts": ts, "viewer": viewer, "reason": reason, "what": what}
 
@@ -224,7 +244,7 @@ class Lookup(BaseModel):
 
 
 @router.post("/workers/{wid}/lookup")
-def lookup(wid: str, body: Lookup):
+def lookup(wid: str, body: Lookup) -> dict[str, Any]:
     """Open one worker's record. Needs a reason; the worker sees it."""
     w = _worker(wid)
     if len(body.reason.strip()) < 3:
@@ -236,7 +256,7 @@ def lookup(wid: str, body: Lookup):
 
 
 @router.get("/workers/{wid}/access-log")
-def access_log(wid: str):
+def access_log(wid: str) -> list[dict[str, Any]]:
     """List the access-log entries for a worker's record, newest first."""
     _worker(wid)
     rows = state.get().conn.execute("SELECT * FROM access_log WHERE worker_id=? ORDER BY id DESC", (wid,)).fetchall()
@@ -246,7 +266,7 @@ def access_log(wid: str):
 # --- Demo tools ---------------------------------------------------------------
 
 @router.post("/demo/reset")
-def demo_reset():
+def demo_reset() -> dict[str, bool | int]:
     """Wipe and reseed the demo state, returning the new event count."""
     _demo_only()
     from . import seed
@@ -264,7 +284,7 @@ class Tamper(BaseModel):
 
 
 @router.post("/demo/tamper")
-def demo_tamper(t: Tamper):
+def demo_tamper(t: Tamper) -> dict[str, Any]:
     """Simulates someone with database access editing a punch-out, bypassing the app."""
     _demo_only()
     from .tamper import tamper_punch_out

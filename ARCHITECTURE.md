@@ -23,10 +23,10 @@ flowchart LR
   end
 
   subgraph Engines["Engines"]
-    PAY[Fair Pay<br/>pay.py]
-    PASS[Skill Passport<br/>passport.py]
-    VOICE[Voice<br/>voice.py]
-    EDGE[Safety / Edge<br/>edge.py]
+    PAY[Fair Pay<br/>pay/]
+    PASS[Skill Passport<br/>passport/]
+    VOICE[Voice<br/>voice/]
+    EDGE[Safety / Edge<br/>edge/]
     CON[Console + SDG 8<br/>console.py]
   end
 
@@ -56,10 +56,10 @@ flowchart LR
 | Crypto | `crypto.py` | Canonical JSON, SHA-256, Merkle trees and proofs, Ed25519 key store | |
 | Ledger | `ledger.py` | Append, read, `verify()`, daily roots, inclusion proofs, worker receipts | all |
 | Core API | `core_api.py` | Workers, punches, corrections, receipts check, access log, demo tools | `punch.*`, `access.lookup` |
-| Fair Pay | `pay.py` | Hours from punches, overtime cap and fatigue, signed consent, payslip, 9 fairness checks | `ot.*`, `pay.run`, `pf.deposit` |
-| Voice | `voice.py`, `voice_client.py`, `web/shared/voice-client.js` | Blind-signature tokens, relay, nullifiers, threshold themes, "You said, we did" | `voice.report`, `voice.response` |
-| Skill Passport | `passport.py`, `web/verify/` | Auto-issued W3C-VC-shaped credentials, QR, revocation, JD matching | `production.count`, `credential.*` |
-| Edge | `edge.py`, `scripts/edge_sim.py` | Box-signed camera events, privacy guard, zone summaries | `edge.event` |
+| Fair Pay | `pay/` (rules, shifts, limits, overtime, wages, payslips, audit, api) | Hours from punches, overtime cap and fatigue, signed consent, payslip, 9 fairness checks | `ot.*`, `pay.run`, `pf.deposit` |
+| Voice | `voice/` (blind, keys, issuer, relay, publication, scrubber, api), `voice_client.py`, `web/shared/voice-client.js` | Blind-signature tokens, relay, nullifiers, threshold themes, "You said, we did" | `voice.report`, `voice.response` |
+| Skill Passport | `passport/` (rules, evidence, vc, credentials, status, coverage, matching, api), `web/verify/` | Auto-issued W3C-VC-shaped credentials, QR, revocation, JD matching | `production.count`, `credential.*` |
+| Edge | `edge/` (cameras, privacy, ingest, reports, api), `scripts/edge_sim.py` | Box-signed camera events, privacy guard, zone summaries | `edge.event` |
 | Console | `console.py` | Exceptions ranked by legal risk, SDG 8 scorecard | (reads all) |
 | i18n | `i18n.py`, `web/shared/i18n.js` | Receipts and UI in Tamil, Hindi, Odia, English | |
 
@@ -81,7 +81,7 @@ after harm. Values are illustrative Tamil Nadu figures (see README caveats).
 | State minimum wage by skill band | Wages | `pay.RULES`, fairness "Minimum wage" | Make-up flagged per worker | 8.5 |
 | Equal pay regardless of gender | Wages | fairness "Equal pay" | Within-band daily base gap > 5% flagged for written review | 8.5 |
 | Principal employer answers for contractors | OSH / SS | fairness "Deposits match deductions" | PF deposited (EPFO ECR) vs deducted per contractor | 8.8 |
-| Grievance mechanism for ≥ 20 workers | IR | `voice.py` | Anonymous, one per topic per month, threshold publication, response board | 8.8 |
+| Grievance mechanism for ≥ 20 workers | IR | `voice/relay.py`, `voice/publication.py` | Anonymous, one per topic per month, threshold publication, response board | 8.8 |
 | Inspector view, digital registers | Wages | `ledger.verify`, `/api/ledger/*` | Registers and payslips generated from signed events; auditor role read-only | 8.8 |
 | Corrections, not overwrites | (design) | `POST /api/punch/correction` | New signed event with reason and approver | 8.7 |
 
@@ -263,7 +263,7 @@ signed `events` table is the source of truth. Voice report rows have no worker c
 
 ## 9. Testing
 
-191 tests, 93% line coverage of `saakshi/` (CI gate: 83%). Details in [docs/TESTING.md](docs/TESTING.md).
+210 tests, 95% line coverage of `saakshi/` (CI gate: 83%). Details in [docs/TESTING.md](docs/TESTING.md).
 
 | Suite | What it proves |
 | --- | --- |

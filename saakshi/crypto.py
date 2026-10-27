@@ -3,15 +3,23 @@ from __future__ import annotations
 
 import hashlib
 import json
+import sqlite3
 import threading
 from datetime import UTC, datetime
+from typing import Any, Literal, TypedDict
 
 from nacl.encoding import HexEncoder
 from nacl.exceptions import BadSignatureError
 from nacl.signing import SigningKey, VerifyKey
 
 
-def canonical(obj) -> bytes:
+class ProofStep(TypedDict):
+    """One step of a Merkle inclusion proof: the sibling hash and which side it sits on."""
+    sibling: str
+    side: Literal["L", "R"]
+
+
+def canonical(obj: Any) -> bytes:
     """Deterministic JSON bytes: sorted keys, no spaces, UTF-8."""
     return json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
 
@@ -43,10 +51,10 @@ def merkle_root(hashes: list[str]) -> str:
     return level[0].hex()
 
 
-def merkle_proof(hashes: list[str], index: int) -> list[dict]:
+def merkle_proof(hashes: list[str], index: int) -> list[ProofStep]:
     """Inclusion proof for hashes[index]: list of {sibling, side}."""
     level = [_leaf(h) for h in hashes]
-    proof = []
+    proof: list[ProofStep] = []
     i = index
     while len(level) > 1:
         if len(level) % 2:
@@ -58,7 +66,7 @@ def merkle_proof(hashes: list[str], index: int) -> list[dict]:
     return proof
 
 
-def verify_merkle_proof(leaf_hash: str, proof: list[dict], root: str) -> bool:
+def verify_merkle_proof(leaf_hash: str, proof: list[ProofStep], root: str) -> bool:
     """Return True if the proof links leaf_hash to root."""
     cur = _leaf(leaf_hash)
     for step in proof:
@@ -86,12 +94,13 @@ class KeyStore:
     Demo only: production keys live in an HSM / on the device.
     """
 
-    def __init__(self, conn, lock: threading.RLock):
+    def __init__(self, conn: sqlite3.Connection, lock: threading.RLock) -> None:
         self.conn = conn
         self.lock = lock
         self._cache: dict[str, SigningKey] = {}
 
     def get(self, name: str) -> SigningKey:
+        """Return the named key, generating and storing it on first use."""
         if name in self._cache:
             return self._cache[name]
         with self.lock:
@@ -109,10 +118,13 @@ class KeyStore:
         return sk
 
     def public_hex(self, name: str) -> str:
+        """Hex-encoded Ed25519 public key of the named key."""
         return self.get(name).verify_key.encode(HexEncoder).decode()
 
     def sign(self, name: str, message: bytes) -> str:
+        """Hex-encoded Ed25519 signature of `message` by the named key."""
         return self.get(name).sign(message).signature.hex()
 
     def verify(self, name: str, message: bytes, sig_hex: str) -> bool:
+        """Return True if `sig_hex` is the named key's signature of `message`."""
         return verify_sig(self.public_hex(name), message, sig_hex)
