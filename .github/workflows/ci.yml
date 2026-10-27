@@ -9,7 +9,7 @@ jobs:
         with: { python-version: "3.13" }
       - uses: actions/setup-node@v4
         with: { node-version: "22" }
-      - run: pip install -r requirements.txt ruff mypy pytest-cov hypothesis
+      - run: pip install -r requirements.txt ruff==0.16.9 mypy==2.3.1 pytest-cov hypothesis
       - run: ruff check saakshi scripts tests api main.py
       - name: mypy (packages = ["saakshi"] in pyproject.toml)
         run: mypy

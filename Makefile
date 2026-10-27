@@ -1,7 +1,7 @@
 .PHONY: install run test lint typecheck demo bench check
 
 install:   ## install runtime and dev dependencies
-	pip install -r requirements.txt ruff mypy
+	pip install -r requirements.txt ruff==0.16.9 mypy==2.3.1
 
 run:       ## start the API and both web apps on :8000
 	uvicorn saakshi.app:app --port 8000

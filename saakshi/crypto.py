@@ -80,7 +80,7 @@ def verify_merkle_proof(leaf_hash: str, proof: list[ProofStep], root: str) -> bo
 def verify_sig(public_hex: str, message: bytes, sig_hex: str) -> bool:
     """Return True if sig_hex is a valid Ed25519 signature of message."""
     try:
-        VerifyKey(public_hex, encoder=HexEncoder).verify(message, bytes.fromhex(sig_hex))
+        VerifyKey(bytes.fromhex(public_hex)).verify(message, bytes.fromhex(sig_hex))
         return True
     except (BadSignatureError, ValueError, TypeError):
         return False
@@ -106,7 +106,7 @@ class KeyStore:
         with self.lock:
             row = self.conn.execute("SELECT seed_hex FROM keys WHERE name=?", (name,)).fetchone()
             if row:
-                sk = SigningKey(row[0], encoder=HexEncoder)
+                sk = SigningKey(bytes.fromhex(row[0]))
             else:
                 sk = SigningKey.generate()
                 self.conn.execute(
