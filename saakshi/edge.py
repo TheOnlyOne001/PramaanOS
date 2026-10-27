@@ -72,7 +72,7 @@ _VALUE_PATTERNS = [
 
 
 class PrivacyViolation(ValueError):
-    pass
+    """Raised when an edge event carries identifying or disallowed data."""
 
 
 def _key_bad(key: str) -> bool:
@@ -164,12 +164,14 @@ def _row(ev: dict) -> dict:
 
 
 def recent(limit: int = 20, kind: str | None = None) -> list[dict]:
+    """Return the most recent edge events, optionally filtered by kind."""
     evs = state.get().ledger.events(type="edge.event", desc=True)
     rows = [_row(e) for e in evs if kind is None or e["payload"].get("kind") == kind]
     return rows[:limit]
 
 
 def summary(day: str | None = None) -> dict:
+    """Summarise one day's edge events by zone, PPE compliance, alerts and peak queue."""
     st = state.get()
     if day is None:
         last = st.ledger.events(type="edge.event", desc=True, limit=1)
@@ -206,21 +208,25 @@ def summary(day: str | None = None) -> dict:
 
 @router.post("/edge/events")
 def post_event(body: dict = Body(...)):
+    """Ingest an edge event posted over HTTP."""
     return ingest(body)
 
 
 @router.get("/edge/events")
 def get_events(limit: int = 50, kind: str | None = None):
+    """Return recent edge events over HTTP."""
     return recent(limit, kind)
 
 
 @router.get("/edge/summary")
 def get_summary(day: str | None = None):
+    """Return the daily edge summary over HTTP."""
     return summary(day)
 
 
 @router.get("/edge/cameras")
 def get_cameras():
+    """Return the configured edge cameras."""
     return CAMERAS
 
 
@@ -228,6 +234,7 @@ def get_cameras():
 
 
 def seed_demo(st) -> None:
+    """Seed the ledger with demo edge events."""
     keys = st.keys
     tz = config.TZ
     out = []

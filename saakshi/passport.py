@@ -137,19 +137,23 @@ def subject_id(wid: str) -> str:
 
 
 def issuer() -> dict:
+    """Return the site issuer's id, name and public key."""
     pub = state.get().keys.public_hex(ISSUER_KEY)
     return {"id": f"did:key:site-issuer:{pub[:16]}", "name": config.SITE_NAME, "public_key_hex": pub}
 
 
 def b64url(data: bytes) -> str:
+    """Encode bytes as unpadded URL-safe base64."""
     return base64.urlsafe_b64encode(data).rstrip(b"=").decode()
 
 
 def b64url_decode(s: str) -> bytes:
+    """Decode unpadded URL-safe base64 to bytes."""
     return base64.urlsafe_b64decode(s + "=" * (-len(s) % 4))
 
 
 def vc_signing_bytes(vc: dict) -> bytes:
+    """Return the canonical bytes of a credential, excluding its proof, for signing."""
     return canonical({k: v for k, v in vc.items() if k != "proof"})
 
 
@@ -188,6 +192,7 @@ def _excluded_seqs(wid: str, skill: str) -> set[int]:
 
 
 def skill_progress(wid: str, skill: str) -> dict:
+    """Return a worker's progress toward the criteria for a skill credential."""
     rule = SKILL_RULES[skill]
     excluded = _excluded_seqs(wid, skill)
     evs = [e for e in state.get().ledger.events(worker_id=wid, type="production.count")
@@ -368,6 +373,7 @@ def _status_of(r) -> dict:
 
 
 def get_credential(cid: str) -> dict | None:
+    """Return the credential row by id or id suffix, or None if not found."""
     conn = state.get().conn
     r = conn.execute("SELECT * FROM passport_credentials WHERE id=?", (cid,)).fetchone()
     if not r:
@@ -379,6 +385,7 @@ def get_credential(cid: str) -> dict | None:
 
 
 def passport(wid: str) -> dict:
+    """Return a worker's skill passport with credentials and skill progress."""
     w = _worker(wid)
     rows = _cred_rows(wid)
     skills = set(SKILL_RULES) & ({w["operation"]} | {
@@ -452,6 +459,7 @@ def expiring(days: int = 30, on: str | None = None) -> list:
 
 
 def status_list() -> dict:
+    """Return the revocation status list bitmap for issued credentials."""
     rows = _cred_rows()
     n = (max(r["status_index"] for r in rows) + 1) if rows else 0
     bits = [0] * n
@@ -500,6 +508,7 @@ _BAND_LEVEL = {"unskilled": "L", "semi-skilled": "U", "skilled": "U", "highly-sk
 
 
 def parse_job(text: str) -> list[dict]:
+    """Parse a job description into required skills and levels by keyword."""
     t = text.lower()
     level = "U"
     for pat, lv in _LEVEL_WORDS:
@@ -514,6 +523,7 @@ def parse_job(text: str) -> list[dict]:
 
 
 def match(wid: str, job_description: str) -> dict:
+    """Score a worker's fit for a job description and list matches, gaps and training."""
     w = _worker(wid)
     required = parse_job(job_description)
     held = _held(wid)
@@ -557,6 +567,7 @@ def match(wid: str, job_description: str) -> dict:
 
 
 class Production(BaseModel):
+    """Production count record submitted for a worker."""
     worker_id: str
     operation: str
     pieces: int
@@ -567,6 +578,7 @@ class Production(BaseModel):
 
 
 def record_production(p: Production | dict) -> dict:
+    """Validate and record a production count, issuing any newly earned credentials."""
     p = p if isinstance(p, Production) else Production(**p)
     _worker(p.worker_id)
     if p.pieces <= 0 or p.minutes <= 0 or p.sam <= 0 or p.defects < 0 or p.defects > p.pieces:
@@ -581,11 +593,13 @@ def record_production(p: Production | dict) -> dict:
 
 @router.post("/production")
 def production(p: Production):
+    """Record a production count over HTTP."""
     return record_production(p)
 
 
 @router.get("/passport/issuers")
 def issuers():
+    """Return the trusted issuer list and status list location."""
     iss = issuer()
     return {"issuers": [{**iss, "verificationMethod": f"{iss['id']}#key-1"}],
             "status_list": "/api/passport/status", "updated": now_ts()}
@@ -593,31 +607,37 @@ def issuers():
 
 @router.get("/passport/status")
 def passport_status():
+    """Return the revocation status list over HTTP."""
     return status_list()
 
 
 @router.get("/passport/coverage")
 def passport_coverage():
+    """Return credential coverage over HTTP."""
     return coverage()
 
 
 @router.get("/passport/expiring")
 def passport_expiring(days: int = 30):
+    """Return credentials expiring within the given number of days."""
     return expiring(days)
 
 
 class MatchReq(BaseModel):
+    """Job match request body."""
     worker_id: str
     job_description: str
 
 
 @router.post("/passport/match")
 def passport_match(m: MatchReq):
+    """Match a worker to a job description over HTTP."""
     return match(m.worker_id, m.job_description)
 
 
 @router.get("/passport/credentials/{cid}")
 def credential(cid: str):
+    """Return a credential's verifiable credential JSON or 404."""
     r = get_credential(cid)
     if not r:
         raise HTTPException(404, "no such credential")
@@ -625,11 +645,13 @@ def credential(cid: str):
 
 
 def verify_url(vc: dict, base: str = "http://localhost:8000") -> str:
+    """Return the browser verification URL embedding the credential."""
     return base.rstrip("/") + "/verify/#" + b64url(canonical(vc))
 
 
 @router.get("/passport/credentials/{cid}/qr")
 def credential_qr(cid: str, base: str = Query("http://localhost:8000")):
+    """Return an SVG QR code linking to the credential's verification URL."""
     import qrcode
     from qrcode.image.svg import SvgPathImage
     r = get_credential(cid)
@@ -642,12 +664,14 @@ def credential_qr(cid: str, base: str = Query("http://localhost:8000")):
 
 
 class Revoke(BaseModel):
+    """Credential revocation request body."""
     reason: str
     by: str = "site-issuer"
 
 
 @router.post("/passport/credentials/{cid}/revoke")
 def revoke(cid: str, body: Revoke):
+    """Revoke a credential for fraud and record the revocation in the ledger."""
     if not re.search(r"fraud|falsif|forg|fake|fabricat", body.reason, re.I):
         raise HTTPException(422, "Credentials are revoked only for fraud (e.g. falsified production records). "
                                  "A skill does not lapse because someone left, disputed pay or was absent.")
@@ -670,6 +694,7 @@ def revoke(cid: str, body: Revoke):
 
 @router.get("/passport/{wid}")
 def passport_get(wid: str):
+    """Return a worker's skill passport over HTTP."""
     return passport(wid)
 
 
@@ -699,6 +724,7 @@ _INDUCTION_EXPIRY = {"W004": "2026-11-06", "W006": "2026-11-14"}  # due inside 3
 
 
 def seed_demo(st) -> None:
+    """Seed the ledger with demo production records and credentials."""
     minutes = 420
     for wid, (op, plan) in _SEED_PLAN.items():
         sam = _SAM[op]

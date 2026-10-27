@@ -30,6 +30,7 @@ def _worker(wid: str) -> dict:
 
 @router.get("/site")
 def site():
+    """Return site metadata, the ledger event count and the public keys."""
     st = state.get()
     return {"site_id": config.SITE_ID, "name": config.SITE_NAME, "state": config.STATE,
             "demo_day": config.DEMO_DAY, "now": now_ts(), "n_events": st.ledger.count(),
@@ -38,18 +39,21 @@ def site():
 
 @router.get("/workers")
 def workers():
+    """List all workers ordered by ID."""
     rows = state.get().conn.execute("SELECT * FROM workers ORDER BY id").fetchall()
     return [dict(r) for r in rows]
 
 
 @router.get("/workers/{wid}")
 def worker(wid: str):
+    """Return one worker's record."""
     return _worker(wid)
 
 
 # --- Proof of Hours: punches ------------------------------------------------
 
 class Punch(BaseModel):
+    """Request body for a punch-in or punch-out event."""
     worker_id: WorkerId
     kind: str  # "in" | "out"
     ts: Ts | None = None
@@ -58,6 +62,7 @@ class Punch(BaseModel):
 
 @router.post("/punch")
 def punch(p: Punch):
+    """Append a punch-in or punch-out event for a worker to the ledger."""
     _worker(p.worker_id)
     if p.kind not in ("in", "out"):
         raise HTTPException(422, "kind must be 'in' or 'out'")
@@ -65,6 +70,7 @@ def punch(p: Punch):
 
 
 class Correction(BaseModel):
+    """Request body for correcting an earlier punch event."""
     worker_id: WorkerId
     corrects_seq: int = Field(ge=1)
     new_ts: Ts
@@ -90,6 +96,7 @@ def punch_correction(c: Correction):
 @router.get("/ledger/events")
 def ledger_events(worker_id: str | None = None, type: str | None = None, type_prefix: str | None = None,
                   day: str | None = None, since_seq: int | None = None, limit: int = 200, desc: bool = True):
+    """List ledger events matching the given filters (limit capped at 1000)."""
     limit = max(1, min(limit, 1000))
     return state.get().ledger.events(worker_id=worker_id, type=type, type_prefix=type_prefix, day=day,
                                      since_seq=since_seq, limit=limit, desc=desc)
@@ -97,6 +104,7 @@ def ledger_events(worker_id: str | None = None, type: str | None = None, type_pr
 
 @router.get("/ledger/events/{seq}")
 def ledger_event(seq: int):
+    """Return one ledger event by sequence number, or 404."""
     ev = state.get().ledger.get(seq)
     if not ev:
         raise HTTPException(404, "no such event")
@@ -105,6 +113,7 @@ def ledger_event(seq: int):
 
 @router.get("/ledger/events/{seq}/proof")
 def ledger_proof(seq: int):
+    """Return the inclusion proof for a ledger event, or 404."""
     p = state.get().ledger.inclusion_proof(seq)
     if not p:
         raise HTTPException(404, "no such event")
@@ -113,6 +122,7 @@ def ledger_proof(seq: int):
 
 @router.get("/ledger/verify")
 def ledger_verify():
+    """Verify the ledger and return the result, adding worker names to problems."""
     st = state.get()
     res = st.ledger.verify()
     names = {r["id"]: r["name"] for r in st.conn.execute("SELECT id, name FROM workers")}
@@ -123,11 +133,13 @@ def ledger_verify():
 
 @router.get("/ledger/roots")
 def ledger_roots():
+    """Return the status of the ledger's daily roots."""
     return state.get().ledger.roots_status()
 
 
 @router.post("/ledger/roots/publish")
 def ledger_publish(day: str | None = None):
+    """Publish the ledger root for a day (default: the demo day)."""
     return state.get().ledger.publish_root(day or config.DEMO_DAY)
 
 
@@ -135,6 +147,7 @@ def ledger_publish(day: str | None = None):
 
 @router.get("/workers/{wid}/receipts")
 def receipts(wid: str, limit: int = 100):
+    """List a worker's wallet receipts, newest first (limit capped at 500)."""
     _worker(wid)
     limit = max(1, min(limit, 500))
     rows = state.get().conn.execute(
@@ -143,11 +156,13 @@ def receipts(wid: str, limit: int = 100):
 
 
 class ReceiptRef(BaseModel):
+    """A worker-held receipt: event sequence number and content hash."""
     seq: int
     hash: str
 
 
 class ReceiptCheck(BaseModel):
+    """Request body with optional worker-held receipts to check against the ledger."""
     receipts: list[ReceiptRef] | None = Field(default=None, max_length=5000)
 
 
@@ -201,6 +216,7 @@ def log_access(worker_id: str, viewer: str, reason: str, what: str = "record", v
 
 
 class Lookup(BaseModel):
+    """Request body for opening a worker's record: viewer, reason, role and scope."""
     viewer: Text
     reason: Text
     viewer_role: Text = "employer"
@@ -221,6 +237,7 @@ def lookup(wid: str, body: Lookup):
 
 @router.get("/workers/{wid}/access-log")
 def access_log(wid: str):
+    """List the access-log entries for a worker's record, newest first."""
     _worker(wid)
     rows = state.get().conn.execute("SELECT * FROM access_log WHERE worker_id=? ORDER BY id DESC", (wid,)).fetchall()
     return [dict(r) for r in rows]
@@ -230,6 +247,7 @@ def access_log(wid: str):
 
 @router.post("/demo/reset")
 def demo_reset():
+    """Wipe and reseed the demo state, returning the new event count."""
     _demo_only()
     from . import seed
     st = state.reset(wipe=True)
@@ -238,6 +256,7 @@ def demo_reset():
 
 
 class Tamper(BaseModel):
+    """Request body for the demo tamper simulation."""
     seq: int | None = None
     worker_id: WorkerId = "W001"
     new_ts: Ts | None = None

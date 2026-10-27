@@ -15,14 +15,17 @@ _templates: dict[str, dict[str, Callable[[dict], str]]] = {}
 
 
 def register(event_type: str, by_lang: dict[str, Callable[[dict], str]]) -> None:
+    """Register per-language receipt templates for an event type."""
     _templates[event_type] = by_lang
 
 
 def has(event_type: str) -> bool:
+    """Return True if templates exist for event_type."""
     return event_type in _templates
 
 
 def render(event_type: str, ctx: dict, lang: str) -> str:
+    """Render the event's receipt text in lang, falling back to English."""
     t = _templates.get(event_type)
     if not t:
         return f"{event_type} · ref {ctx.get('ref', '')}"

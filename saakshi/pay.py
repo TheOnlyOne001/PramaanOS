@@ -67,6 +67,7 @@ def _worker(wid: str) -> dict:
 
 
 def hourly_rate(band: str) -> float:
+    """Return the minimum-wage hourly rate in INR for a skill band (monthly wage / payable days / daily hours)."""
     return RULES["min_wage_monthly"][band] / RULES["days_payable"] / RULES["daily_hours"]
 
 
@@ -131,6 +132,7 @@ def _opening(wid: str, type_: str, key: str, value: str) -> list[dict]:
 
 
 def quarter_used(wid: str, day: str) -> float:
+    """Return overtime hours a worker has used in the quarter up to `day`, incl. opening balance and accepted requests."""
     q, start = _quarter(day)
     used = sum(e["payload"]["hours"] for e in _opening(wid, "ot.opening_balance", "quarter", q))
     shifts = hours(wid, start, day)
@@ -141,6 +143,7 @@ def quarter_used(wid: str, day: str) -> float:
 
 
 def cap_status(date_: str | None = None) -> list[dict]:
+    """Return each worker's quarterly overtime usage vs. cap with an ok/near/over status (defaults to the demo day)."""
     day = date_ or config.DEMO_DAY
     cap = RULES["ot_cap_quarter"]
     out = []
@@ -172,6 +175,7 @@ def _fatigue(wid: str, day: str) -> str | None:
 # --- Overtime requests and consent ----------------------------------------------
 
 class OTRequest(BaseModel):
+    """Request body for asking one or more workers to do overtime (0–4 h) on a date."""
     worker_ids: list[str] = Field(min_length=1, max_length=200)
     date: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}$")
     hours: float = Field(gt=0, le=4)
@@ -181,6 +185,7 @@ class OTRequest(BaseModel):
 
 
 def create_requests(body: OTRequest) -> dict:
+    """Create and ledger an OT request per worker, blocking any that breach the quarterly cap or fatigue limits."""
     st = state.get()
     ws = _workers()
     cap = RULES["ot_cap_quarter"]
@@ -218,6 +223,7 @@ def create_requests(body: OTRequest) -> dict:
 
 
 def list_requests(worker_id: str | None = None, status: str | None = None) -> list[dict]:
+    """Return OT requests with worker names, newest first, optionally filtered by worker and status."""
     q, args = "SELECT r.*, w.name FROM ot_requests r JOIN workers w ON w.id=r.worker_id WHERE 1=1", []
     if worker_id:
         q += " AND r.worker_id=?"
@@ -229,6 +235,7 @@ def list_requests(worker_id: str | None = None, status: str | None = None) -> li
 
 
 class Consent(BaseModel):
+    """Request body for a worker accepting or declining an OT request via voice, tap or WhatsApp."""
     decision: str = Field(pattern="^(accept|decline)$")
     channel: str = Field(default="tap", pattern="^(voice|tap|whatsapp)$")
     transcript: str | None = Field(default=None, max_length=200)
@@ -236,6 +243,7 @@ class Consent(BaseModel):
 
 
 def consent(request_id: str, body: Consent) -> dict:
+    """Record a worker-signed accept/decline on a pending OT request; 404 if unknown, 409 if not pending."""
     st = state.get()
     r = st.conn.execute("SELECT * FROM ot_requests WHERE request_id=?", (request_id,)).fetchone()
     if not r:
@@ -256,6 +264,7 @@ def consent(request_id: str, body: Consent) -> dict:
 # --- Pay ----------------------------------------------------------------------------
 
 def today(wid: str, day: str | None = None) -> dict:
+    """Return a worker's hours and INR earnings for one day (defaults to the demo day); 0 worked while still clocked in."""
     w = _worker(wid)
     day = day or config.DEMO_DAY
     s = next((x for x in hours(wid, day, day)), None)
@@ -429,6 +438,7 @@ def _fairness(period: str) -> dict:
 
 
 def run(period: str) -> dict:
+    """Run payroll for a period, ledgering pay for each unblocked worker and reporting failed checks."""
     st = state.get()
     results = []
     v = st.ledger.verify()  # once per run; pay.run events appended below are signed by this ledger
@@ -446,52 +456,62 @@ def run(period: str) -> dict:
 
 @router.get("/rules")
 def get_rules():
+    """Return the wage and overtime rules in force."""
     return RULES
 
 
 @router.get("/hours/{wid}")
 def get_hours(wid: str, day_from: str = "2026-10-01", day_to: str = config.DEMO_DAY):
+    """Return a worker's daily shifts between two ISO dates (inclusive); 404 if the worker is unknown."""
     _worker(wid)
     return hours(wid, day_from, day_to)
 
 
 @router.get("/ot/cap")
 def get_cap(date: str | None = None):
+    """Return every worker's quarterly overtime cap status as of a date."""
     return cap_status(date)
 
 
 @router.post("/ot/requests")
 def post_requests(body: OTRequest):
+    """Create overtime requests for the given workers."""
     return create_requests(body)
 
 
 @router.get("/ot/requests")
 def get_requests(worker_id: str | None = None, status: str | None = None):
+    """List overtime requests, optionally filtered by worker and status."""
     return list_requests(worker_id, status)
 
 
 @router.post("/ot/requests/{request_id}/consent")
 def post_consent(request_id: str, body: Consent):
+    """Record a worker's accept/decline on an overtime request."""
     return consent(request_id, body)
 
 
 @router.get("/pay/fairness")
 def get_fairness(period: str = config.DEMO_DAY[:7]):
+    """Return the pay fairness report for a YYYY-MM period."""
     return fairness(period)
 
 
 @router.post("/pay/run")
 def post_run(period: str = config.DEMO_DAY[:7]):
+    """Run payroll for a YYYY-MM period."""
     return run(period)
 
 
 @router.get("/pay/{wid}/today")
 def get_today(wid: str, day: str | None = None):
+    """Return a worker's hours and earnings for one day."""
     return today(wid, day)
 
 
 @router.get("/pay/{wid}/payslip")
 def get_payslip(wid: str, period: str = config.DEMO_DAY[:7]):
+    """Return a worker's payslip for a YYYY-MM period."""
     return payslip(wid, period)
 
 
@@ -504,6 +524,7 @@ PAST = ["2026-10-19", "2026-10-20", "2026-10-21", "2026-10-22", "2026-10-23", "2
 
 
 def seed_demo(st) -> None:
+    """Seed the ledger with demo opening balances and recent overtime history for every worker."""
     L = st.ledger
     ws = _workers()
     for wid in ws:

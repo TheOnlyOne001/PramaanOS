@@ -30,6 +30,7 @@ def now_ts() -> str:
 
 
 def ref_of(hash_hex: str) -> str:
+    """Return the short uppercase reference code for an event hash."""
     return hash_hex[:4].upper()
 
 
@@ -43,10 +44,12 @@ def _row_to_event(r) -> dict:
 
 
 def body_of(ev: dict) -> dict:
+    """Return the hashed body fields of an event."""
     return {k: ev[k] for k in ("seq", "site", "ts", "type", "worker_id", "payload", "prev_hash")}
 
 
 class Ledger:
+    """Append-only, hash-chained, signed event ledger for a site."""
     def __init__(self, conn, keys: KeyStore, lock: threading.RLock, site: str = SITE_ID):
         self.conn = conn
         self.keys = keys
@@ -324,5 +327,6 @@ class Ledger:
 
 
 def receipt_ctx(ev: dict) -> dict:
+    """Return the template context used to render an event's receipt."""
     p = ev.get("payload") or {}
     return {**p, "ref": ev["ref"], "type": ev["type"], "hm": ev["ts"][11:16], "date": ev["ts"][:10]}

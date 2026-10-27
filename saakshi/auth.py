@@ -129,6 +129,7 @@ def _key() -> bytes:
 
 
 def issue_token(role: str, sub: str | None = None, wid: str | None = None, ttl: int = TTL_SECONDS) -> str:
+    """Issue an HMAC-signed bearer token for a role (worker tokens require a wid)."""
     if role not in ROLES:
         raise ValueError("unknown role")
     payload = {"sub": sub or wid or DEFAULT_SUB[role], "role": role, "exp": int(time.time()) + ttl}
@@ -142,6 +143,7 @@ def issue_token(role: str, sub: str | None = None, wid: str | None = None, ttl: 
 
 
 def verify_token(token: str) -> dict | None:
+    """Return the token payload if signature, role and expiry are valid, else None."""
     try:
         body, sig = token.split(".")
         expected = _b64(hmac.new(_key(), body.encode(), hashlib.sha256).digest())
@@ -159,6 +161,7 @@ def verify_token(token: str) -> dict | None:
 
 # --- policy evaluation ----------------------------------------------------------------------------
 def match(method: str, path: str):
+    """Return (roles, regex match) for the first policy rule matching method and path, else (None, None)."""
     method = "GET" if method == "HEAD" else method
     for m, rx, roles in _COMPILED:
         mm = rx.fullmatch(path)
@@ -174,6 +177,7 @@ def _owns_request(rid: str, wid: str) -> bool:
 
 
 def allowed(roles, mm, p: dict, query: dict, body: dict | None) -> bool:
+    """Return True if the caller's role, self-access or consent ownership satisfies the rule."""
     role, wid = p["role"], p.get("wid")
     if role in roles:
         return True
@@ -278,6 +282,7 @@ router = APIRouter(prefix="/api")
 
 
 class DemoLogin(BaseModel):
+    """Request body for a demo login: a role and an optional worker ID."""
     role: str
     worker_id: str | None = None
 

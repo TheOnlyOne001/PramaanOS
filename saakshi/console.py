@@ -136,6 +136,7 @@ def _skills_exceptions() -> list[dict]:
 
 @router.get("/console/overview")
 def overview():
+    """Return the console overview: ledger integrity status and exceptions from all modules."""
     st = state.get()
     v = st.ledger.verify()
     exceptions = _integrity_exceptions(v)
@@ -222,4 +223,5 @@ def _scorecard() -> list[dict]:
 
 @router.get("/sdg8/scorecard")
 def scorecard():
+    """Return the site's SDG 8 scorecard targets for the reporting period."""
     return {"site": config.SITE_NAME, "period": PERIOD, "targets": _safe(_scorecard, [])}

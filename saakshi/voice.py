@@ -190,6 +190,7 @@ def topics(month: str | None = None):
 # --- issue (identified) ------------------------------------------------------------------
 
 def issue(worker_id: str, month: str, blinded: dict[str, str], st=None) -> dict:
+    """Blind-sign one voice token per topic for an active non-supervisor worker; 409 if already issued this month."""
     s = _st(st)
     w = s.conn.execute("SELECT * FROM workers WHERE id=?", (worker_id,)).fetchone()
     if not w:
@@ -265,6 +266,7 @@ def _latest_response(month: str, topic: str, s) -> dict | None:
 
 def submit_report(topic: str, month: str, token_hex: str, signature_hex: str, text: str, lang: str = "en",
                   ts: str | None = None, st=None) -> dict:
+    """Store an anonymous report after verifying its token (≤2000 chars, one per token) and return its case key and status."""
     s = _st(st)
     _check_topic(topic)
     _check_month(month)
@@ -357,6 +359,7 @@ def _name_patterns(s) -> list[tuple[str, str, str]]:
 
 
 def scrub(text: str, st=None) -> dict:
+    """Suggest a rewrite of text with identifying details replaced, plus the flagged spans and reasons."""
     s = _st(st)
     text = text or ""
     found = []  # (start, end, repl, reason)
@@ -458,6 +461,7 @@ def _board_entry(row, s) -> dict:
 
 
 def respond(topic: str, text: str, by: str, month: str | None = None, ts: str | None = None, st=None) -> dict:
+    """Record a management response to a published or escalated theme; 409 if it has not reached management."""
     s = _st(st)
     _check_topic(topic)
     month = month or current_month()

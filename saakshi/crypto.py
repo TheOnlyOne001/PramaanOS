@@ -17,6 +17,7 @@ def canonical(obj) -> bytes:
 
 
 def sha256_hex(data: bytes) -> str:
+    """Return the hex SHA-256 digest of data."""
     return hashlib.sha256(data).hexdigest()
 
 
@@ -31,6 +32,7 @@ def _node(a: bytes, b: bytes) -> bytes:
 
 
 def merkle_root(hashes: list[str]) -> str:
+    """Return the hex Merkle root of the given leaf hashes."""
     if not hashes:
         return sha256_hex(b"")
     level = [_leaf(h) for h in hashes]
@@ -57,6 +59,7 @@ def merkle_proof(hashes: list[str], index: int) -> list[dict]:
 
 
 def verify_merkle_proof(leaf_hash: str, proof: list[dict], root: str) -> bool:
+    """Return True if the proof links leaf_hash to root."""
     cur = _leaf(leaf_hash)
     for step in proof:
         sib = bytes.fromhex(step["sibling"])
@@ -67,6 +70,7 @@ def verify_merkle_proof(leaf_hash: str, proof: list[dict], root: str) -> bool:
 # --- Ed25519 ----------------------------------------------------------------
 
 def verify_sig(public_hex: str, message: bytes, sig_hex: str) -> bool:
+    """Return True if sig_hex is a valid Ed25519 signature of message."""
     try:
         VerifyKey(public_hex, encoder=HexEncoder).verify(message, bytes.fromhex(sig_hex))
         return True

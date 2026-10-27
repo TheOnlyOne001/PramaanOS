@@ -13,6 +13,7 @@ from .crypto import canonical, sha256_hex
 
 def tamper_punch_out(conn: sqlite3.Connection, worker_id: str = "W001", seq: int | None = None,
                      new_ts: str | None = None, mode: str = "naive") -> dict:
+    """Edit a punch-out timestamp directly in the DB (demo tamper) and return what changed."""
     if seq is None:
         row = conn.execute("SELECT * FROM events WHERE worker_id=? AND type='punch.out' ORDER BY seq DESC LIMIT 1",
                            (worker_id,)).fetchone()

@@ -24,6 +24,7 @@ KEY_NAMES = ["site", "site-issuer", "edge-box-1"]
 
 
 def seed_workers(st: State) -> None:
+    """Insert demo workers and ensure their signing keys exist."""
     with st.lock:
         for w in WORKERS:
             st.conn.execute(

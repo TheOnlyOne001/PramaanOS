@@ -12,6 +12,7 @@ from . import auth, config, console, core_api, edge, passport, pay, seed, state,
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """Seed demo data on startup when AUTOSEED is on and no workers exist."""
     st = state.get()
     if config.AUTOSEED and st.conn.execute("SELECT COUNT(*) FROM workers").fetchone()[0] == 0:
         seed.seed_all(st)
@@ -30,6 +31,7 @@ CSP = ("default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' 
 
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
+    """Add CSP and other security headers to responses; mark API responses no-store."""
     resp = await call_next(request)
     if not request.url.path.startswith(("/docs", "/redoc", "/openapi.json")):
         resp.headers["Content-Security-Policy"] = CSP
@@ -54,6 +56,7 @@ for name in ("worker", "console", "verify", "shared"):
 
 @app.get("/", response_class=HTMLResponse)
 def index():
+    """Return the landing page HTML that links to the app's front ends."""
     return """<!doctype html><html lang=en><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
 <title>Saakshi</title><style>body{font:16px system-ui;max-width:560px;margin:40px auto;padding:0 16px}
 a{display:block;padding:14px;margin:10px 0;border:1px solid #ccc;border-radius:10px;text-decoration:none}</style>

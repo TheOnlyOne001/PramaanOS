@@ -14,6 +14,7 @@ from .ledger import Ledger
 
 
 class State:
+    """Shared app state: DB connection, lock, keys and ledger."""
     def __init__(self, path: str):
         self.path = path
         self.lock = threading.RLock()
@@ -31,6 +32,7 @@ _state: State | None = None
 
 
 def get() -> State:
+    """Return the process-wide State, creating it on first use."""
     global _state
     if _state is None:
         _state = State(config.DB_PATH)

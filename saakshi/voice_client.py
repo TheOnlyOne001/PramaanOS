@@ -25,6 +25,7 @@ DOMAIN = b"saakshi-voice|"
 # --- primitives ------------------------------------------------------------------
 
 def mgf1_sha256(seed: bytes, length: int) -> bytes:
+    """Return length bytes of MGF1 mask output using SHA-256."""
     out, counter = b"", 0
     while len(out) < length:
         out += hashlib.sha256(seed + counter.to_bytes(4, "big")).digest()
@@ -33,6 +34,7 @@ def mgf1_sha256(seed: bytes, length: int) -> bytes:
 
 
 def n_len(n: int) -> int:
+    """Return the byte length of modulus n."""
     return (n.bit_length() + 7) // 8
 
 
@@ -43,6 +45,7 @@ def fdh(month: str, topic: str, m: bytes, n: int) -> int:
 
 
 def random_unit(n: int) -> int:
+    """Return a random blinding factor coprime to n."""
     while True:
         r = secrets.randbelow(n - 2) + 2
         if math.gcd(r, n) == 1:
@@ -56,10 +59,12 @@ def blind(month: str, topic: str, m: bytes, n: int, e: int, r: int | None = None
 
 
 def unblind(blind_sig: int, r: int, n: int) -> int:
+    """Remove blinding factor r from a blind signature."""
     return (blind_sig * pow(r, -1, n)) % n
 
 
 def verify(month: str, topic: str, m: bytes, s: int, n: int, e: int) -> bool:
+    """Return True if s is a valid RSA signature on the (month, topic) token."""
     if not (0 < s < n):
         return False
     return pow(s, e, n) == fdh(month, topic, m, n)
@@ -71,12 +76,14 @@ def nullifier(month: str, topic: str, m: bytes) -> str:
 
 
 def to_hex(x: int) -> str:
+    """Return x as a lowercase hex string."""
     return format(x, "x")
 
 
 # --- client ------------------------------------------------------------------------
 
 class VoiceClientError(Exception):
+    """Error raised when the voice server returns a failure status."""
     def __init__(self, status_code: int, detail):
         super().__init__(f"{status_code}: {detail}")
         self.status_code = status_code

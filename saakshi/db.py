@@ -48,11 +48,13 @@ _module_schemas: list[str] = []
 
 
 def register_schema(sql: str) -> None:
+    """Register extra module schema SQL to run in init_schema."""
     if sql and sql not in _module_schemas:
         _module_schemas.append(sql)
 
 
 def connect(path: str) -> sqlite3.Connection:
+    """Open a WAL-mode SQLite connection at path, creating its directory."""
     with contextlib.suppress(OSError):
         Path(path).parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(path, check_same_thread=False, isolation_level=None)
@@ -64,6 +66,7 @@ def connect(path: str) -> sqlite3.Connection:
 
 
 def init_schema(conn: sqlite3.Connection) -> None:
+    """Create the core and registered module schemas on conn."""
     conn.executescript(CORE_SCHEMA)
     for sql in _module_schemas:
         conn.executescript(sql)
