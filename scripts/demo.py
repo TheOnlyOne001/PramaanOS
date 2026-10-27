@@ -155,13 +155,11 @@ def main():
     check("W001" not in json.dumps(water) and "Meena" not in json.dumps(water), "no identity attached to the theme")
     from saakshi.voice_client import VoiceClientError
     vc2 = VoiceClient(http)
-    vc2.get_tokens("W005", topics=["water"])
-    vc2.report("water", "Water finishes by afternoon", "en")
     try:
-        vc2.report("water", "Saying it twice", "en")
+        vc2.get_tokens("W001", topics=["water"])
         check(False, "one voice per topic per month")
     except VoiceClientError as err:
-        check(err.status_code in (403, 409), f"one voice per topic per month (second report refused: {err.status_code})")
+        check(err.status_code == 409, f"one voice per topic per month (a second water token for Meena is refused: {err.status_code})")
 
     # 5 ---------------------------------------------------------------------
     step(5, "A person steps into the press zone in front of the camera", a.pause)

@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Saakshi Console</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;600;700&family=Noto+Sans+Oriya:wght@400;600;700&family=Noto+Sans+Tamil:wght@400;600;700&display=swap">
+  <link rel="stylesheet" href="/shared/tokens.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="mark" aria-hidden="true">◆</span><b>Saakshi</b><span class="brand-sub">Employer console</span></div>
+    <div class="site" id="site">…</div>
+    <div class="live"><span class="dot" aria-hidden="true"></span> Live · polling every 3 s</div>
+  </header>
+
+  <div id="integrity" class="integrity checking" role="status" aria-live="assertive">
+    <div class="int-row"><span class="int-icon" aria-hidden="true">…</span><div class="int-text"><b>Checking ledger…</b></div></div>
+  </div>
+
+  <div class="layout">
+    <nav class="nav" id="nav" aria-label="Sections"></nav>
+    <main id="main"></main>
+  </div>
+
+  <div class="modal hidden" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-card" id="modalCard"></div>
+  </div>
+
+  <div class="demo" id="demo">
+    <button type="button" class="demo-toggle" id="demoToggle" aria-expanded="false">🧪 Demo</button>
+    <div class="demo-panel hidden" id="demoPanel">
+      <b>Demo controls</b>
+      <button type="button" class="btn" data-demo="reset">↺ Reset demo</button>
+      <button type="button" class="btn danger" data-demo="tamper">✎ Tamper: edit Meena's punch-out in DB</button>
+      <button type="button" class="btn" data-demo="publish">📌 Publish today's root</button>
+      <a class="btn" href="/worker/?w=W001" target="_blank" rel="noopener">📱 Open Meena's app</a>
+    </div>
+  </div>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
