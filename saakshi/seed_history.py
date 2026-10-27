@@ -12,7 +12,7 @@ PAST_DAYS = ["2026-10-19", "2026-10-20", "2026-10-21", "2026-10-22", "2026-10-23
 
 def seed_history(st: State) -> None:
     from . import edge, passport, pay, voice
-    for mod in (pay, passport, edge, voice):
+    for mod in (voice, pay, passport, edge):  # voice seeds September first, so time stays ordered
         fn = getattr(mod, "seed_demo", None)
         if fn is None:
             continue

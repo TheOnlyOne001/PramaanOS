@@ -144,7 +144,7 @@ def main():
     for wid, msg in (("W001", scrub.get("suggested") or text), ("W004", "No water in the can after 3 pm"),
                      ("W006", "Water finishes in the afternoon, we wait till evening")):
         vc = VoiceClient(http)
-        vc.get_tokens(wid)
+        vc.get_tokens(wid, topics=["water"])
         r = vc.report("water", msg, "en")
         statuses.append(r.get("status"))
         say(f"   report via relay → case {str(r.get('case_key'))[:10]}…  status={r.get('status')}  "
@@ -153,15 +153,15 @@ def main():
     water = next((t for t in themes if t.get("topic") == "water"), {})
     check(water.get("published") is True, "theme reaches the console after 3 independent reports")
     check("W001" not in json.dumps(water) and "Meena" not in json.dumps(water), "no identity attached to the theme")
+    from saakshi.voice_client import VoiceClientError
     vc2 = VoiceClient(http)
-    vc2.get_tokens("W005")
-    vc2.report("water", "first", "en")
+    vc2.get_tokens("W005", topics=["water"])
+    vc2.report("water", "Water finishes by afternoon", "en")
     try:
-        r2 = vc2.report("water", "second time", "en")
-        dup = r2 if isinstance(r2, dict) else {}
-        check(dup.get("status_code", 409) == 409 or dup.get("error"), "one voice per topic per month")
-    except Exception:
-        check(True, "one voice per topic per month (second report rejected)")
+        vc2.report("water", "Saying it twice", "en")
+        check(False, "one voice per topic per month")
+    except VoiceClientError as err:
+        check(err.status_code in (403, 409), f"one voice per topic per month (second report refused: {err.status_code})")
 
     # 5 ---------------------------------------------------------------------
     step(5, "A person steps into the press zone in front of the camera", a.pause)
