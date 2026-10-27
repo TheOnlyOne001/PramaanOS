@@ -46,6 +46,14 @@ python3 scripts/edge_sim.py --scenario press_zone   # the edge camera box
    offline against a cached issuer key.
 7. Close on the SDG 8 scorecard.
 
+## Screenshots
+
+| Employer console after the tamper | Meena's app (Tamil) after the tamper |
+| --- | --- |
+| ![console](docs/screenshots/c-tampered.png) | ![worker](docs/screenshots/w-tampered.png) |
+
+More in [docs/screenshots](docs/screenshots).
+
 ## How it works
 
 ```
