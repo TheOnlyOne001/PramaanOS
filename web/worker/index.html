@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="ta">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b6b68">
+  <title>Saakshi · சாட்சி</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;600;700&family=Noto+Sans+Oriya:wght@400;600;700&family=Noto+Sans+Tamil:wght@400;600;700&display=swap">
+  <link rel="stylesheet" href="/shared/tokens.css">
+  <link rel="stylesheet" href="style.css">
+  <script src="/shared/voice-client.js" defer></script>
+</head>
+<body>
+  <div class="phone" id="phone">
+    <header class="top">
+      <div class="who">
+        <div class="avatar" id="avatar" aria-hidden="true">M</div>
+        <div>
+          <div class="who-name" id="whoName">…</div>
+          <div class="who-sub" id="whoSub"><span class="mono">W001</span></div>
+        </div>
+      </div>
+      <div class="top-actions">
+        <label class="lang-pick"><span class="sr" id="langLabel">Language</span>
+          <select id="lang" aria-label="Language"></select>
+        </label>
+        <button class="speak" id="speak" type="button" aria-label="Read aloud">
+          <span class="speak-icon" aria-hidden="true">🔊</span>
+          <span class="speak-text"><b id="speakLabel">Read aloud</b><small id="speakSub">Bhashini in production</small></span>
+        </button>
+      </div>
+    </header>
+    <div id="banner" aria-live="assertive"></div>
+    <main id="screen" tabindex="-1"></main>
+    <nav class="tabs" id="tabs" aria-label="Screens"></nav>
+  </div>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

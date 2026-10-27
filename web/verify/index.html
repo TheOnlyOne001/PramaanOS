@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Verify a credential · Saakshi</title>
+<meta name="description" content="Check a Saakshi skill credential offline: signature, issuer, evidence and revocation.">
+<style>
+  :root {
+    --bg: #f6f5f1; --card: #ffffff; --text: #1d1f21; --muted: #5f6368; --line: #e3e1da;
+    --ok: #127a46; --ok-bg: #e6f4ec; --bad: #b3261e; --bad-bg: #fbe9e7; --warn: #8a5a00; --warn-bg: #fff4dc;
+    --accent: #2f5d8a; --radius: 14px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141517; --card: #1e2023; --text: #e8e6e1; --muted: #a0a4a8; --line: #2e3135;
+      --ok: #5fd39a; --ok-bg: #12301f; --bad: #ff8a80; --bad-bg: #3a1714; --warn: #ffcc66; --warn-bg: #352a10;
+      --accent: #8ab4e0;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 16px/1.5 system-ui, -apple-system, "Segoe UI", "Noto Sans", "Noto Sans Tamil", sans-serif; }
+  main { max-width: 600px; margin: 0 auto; padding: 20px 16px 48px; }
+  header h1 { font-size: 1.35rem; margin: 0 0 2px; }
+  header p { margin: 0 0 18px; color: var(--muted); font-size: .95rem; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; margin: 0 0 14px; }
+  .verdict { display: flex; gap: 14px; align-items: center; }
+  .verdict .icon { flex: 0 0 48px; height: 48px; border-radius: 50%; display: grid; place-items: center;
+                   font-size: 26px; font-weight: 700; }
+  .verdict h2 { margin: 0; font-size: 1.25rem; }
+  .verdict p { margin: 2px 0 0; color: var(--muted); }
+  .verdict.ok { background: var(--ok-bg); border-color: transparent; } .verdict.ok .icon { background: var(--ok); color: var(--ok-bg); }
+  .verdict.bad { background: var(--bad-bg); border-color: transparent; } .verdict.bad .icon { background: var(--bad); color: var(--bad-bg); }
+  .verdict.warn { background: var(--warn-bg); border-color: transparent; } .verdict.warn .icon { background: var(--warn); color: var(--warn-bg); }
+  dl { margin: 0; }
+  .row { display: grid; grid-template-columns: 120px 1fr; gap: 10px; padding: 10px 0; border-top: 1px solid var(--line); }
+  .row:first-child { border-top: 0; padding-top: 0; }
+  dt { color: var(--muted); font-size: .9rem; }
+  dd { margin: 0; overflow-wrap: anywhere; }
+  dd small { display: block; color: var(--muted); font-size: .85rem; margin-top: 2px; }
+  code { font-size: .8rem; }
+  .pill { display: inline-block; min-width: 1.6em; text-align: center; padding: 0 6px; border-radius: 6px;
+          background: var(--accent); color: var(--card); font-weight: 700; }
+  .ok { color: var(--ok); } .bad { color: var(--bad); }
+  h3 { margin: 0 0 8px; font-size: 1rem; }
+  ul.checks { list-style: none; margin: 0; padding: 0; }
+  ul.checks li { padding: 4px 0; } ul.checks li.muted { color: var(--muted); font-size: .9rem; }
+  details summary { cursor: pointer; font-weight: 600; }
+  textarea { width: 100%; min-height: 120px; margin: 10px 0; padding: 10px; border-radius: 10px; border: 1px solid var(--line);
+             background: var(--bg); color: var(--text); font: 13px/1.4 ui-monospace, monospace; }
+  button { font: inherit; font-weight: 600; padding: 10px 18px; border-radius: 10px; border: 0; background: var(--accent);
+           color: var(--card); cursor: pointer; min-height: 44px; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  footer { color: var(--muted); font-size: .85rem; }
+  @media (max-width: 420px) { .row { grid-template-columns: 1fr; gap: 2px; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Verify a skill credential</h1>
+    <p>Saakshi · சாட்சி — checked here, in your browser. Nothing is sent anywhere.</p>
+  </header>
+
+  <section id="verdict" class="card verdict" hidden aria-live="polite">
+    <div class="icon" id="verdict-icon" aria-hidden="true"></div>
+    <div><h2 id="verdict-title"></h2><p id="verdict-detail"></p></div>
+  </section>
+
+  <section class="card" id="details-card"><dl id="details" hidden></dl>
+    <details id="paste-box">
+      <summary>Paste a credential or link</summary>
+      <form id="paste-form">
+        <label for="paste" class="sr">Credential JSON, verify link, or code</label>
+        <textarea id="paste" placeholder='Paste the verify link, the code after "#", or the credential JSON'></textarea>
+        <button type="submit">Verify</button>
+      </form>
+    </details>
+  </section>
+
+  <section class="card" id="how" hidden>
+    <h3>How this was checked</h3>
+    <ul class="checks" id="checks"></ul>
+  </section>
+
+  <footer>
+    <p>The issuer signs each credential with its private key. This page holds a saved copy of trusted issuers'
+      public keys, so it can check a credential with no internet. Revocation (only for fraud) needs a connection.</p>
+  </footer>
+</main>
+<script src="vendor/nacl-fast.min.js"></script>
+<script src="verify.js"></script>
+</body>
+</html>
