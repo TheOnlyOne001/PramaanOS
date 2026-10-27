@@ -1,0 +1,5 @@
+# Third-party, minified: excluded from language stats and code review tools.
+web/verify/vendor/** linguist-vendored -diff
+# Screenshots are documentation assets, not source.
+docs/screenshots/*.png binary linguist-documentation
+*.md linguist-documentation
