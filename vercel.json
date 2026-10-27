@@ -1,0 +1,10 @@
+{
+  "functions": {
+    "main.py": {
+      "includeFiles": "web/**"
+    },
+    "api/index.py": {
+      "includeFiles": "web/**"
+    }
+  }
+}

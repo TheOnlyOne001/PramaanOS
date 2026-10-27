@@ -8,7 +8,15 @@ garment unit in Tiruppur, Tamil Nadu.
 > consent-based overtime at 2×, timely wages and grievance channels. What's missing is a record
 > both sides trust. Saakshi signs every record where it is created and gives the worker a copy.
 
-## Run it
+## Live Deployment (Vercel)
+
+- **Live Landing**: [https://pramaanos.vercel.app](https://pramaanos.vercel.app)
+- **Worker app (Meena, Tamil)**: [https://pramaanos.vercel.app/worker/?w=W001](https://pramaanos.vercel.app/worker/?w=W001)
+- **Employer console**: [https://pramaanos.vercel.app/console/](https://pramaanos.vercel.app/console/)
+- **Offline credential verifier**: [https://pramaanos.vercel.app/verify/](https://pramaanos.vercel.app/verify/)
+- **API docs**: [https://pramaanos.vercel.app/docs](https://pramaanos.vercel.app/docs) · contract: [API.md](API.md)
+
+## Run it locally
 
 ```bash
 git clone https://github.com/TheOnlyOne001/PramaanOS && cd PramaanOS

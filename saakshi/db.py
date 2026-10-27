@@ -52,7 +52,10 @@ def register_schema(sql: str) -> None:
 
 
 def connect(path: str) -> sqlite3.Connection:
-    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    try:
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        pass
     conn = sqlite3.connect(path, check_same_thread=False, isolation_level=None)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")

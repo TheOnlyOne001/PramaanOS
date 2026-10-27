@@ -44,7 +44,10 @@ for m in (core_api, pay, voice, passport, edge, console):
 
 for name in ("worker", "console", "verify", "shared"):
     d = config.WEB / name
-    d.mkdir(parents=True, exist_ok=True)
+    try:
+        d.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        pass
     app.mount(f"/{name}", StaticFiles(directory=str(d), html=True), name=name)
 
 

@@ -5,7 +5,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 WEB = ROOT / "web"
 
-DB_PATH = os.environ.get("SAAKSHI_DB", str(ROOT / "data" / "saakshi.db"))
+if os.environ.get("VERCEL"):
+    DB_PATH = os.environ.get("SAAKSHI_DB", "/tmp/saakshi.db")
+else:
+    DB_PATH = os.environ.get("SAAKSHI_DB", str(ROOT / "data" / "saakshi.db"))
+
 AUTOSEED = os.environ.get("SAAKSHI_AUTOSEED", "1") != "0"
 
 SITE_ID = "TUP-03"
