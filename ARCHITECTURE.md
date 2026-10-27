@@ -67,6 +67,24 @@ Every module exposes a FastAPI `router` and plain Python functions; the console 
 functions, and each source is wrapped so one failing module never blanks the console. The full
 HTTP contract is in [API.md](API.md).
 
+## 2a. Labour codes and SDG 8 as code
+
+Each rule in force since 21 Nov 2025 becomes a check that runs before the action, not an audit
+after harm. Values are illustrative Tamil Nadu figures (see README caveats).
+
+| Rule | Code | Enforced in | Behaviour | SDG 8 |
+| --- | --- | --- | --- | --- |
+| Overtime only with the worker's consent | OSH | `pay.consent` | Consent signed with `worker:<id>` key; unconsented OT flagged, still paid at 2× | 8.7 |
+| Overtime at twice the ordinary rate | OSH | `pay.payslip`, `pay.today` | `2 × (Basic+DA)/26/8 × OT hours` | 8.5 |
+| 144 h overtime per quarter (central rules) | OSH rules 2026 | `pay.create_requests`, `pay.cap_status` | Near-cap warning at 90%; request that would breach is blocked and cannot be accepted | 8.7, 8.8 |
+| Deductions ≤ 50% of wages | Wages | `pay.payslip` | Payslip and pay run blocked | 8.5 |
+| State minimum wage by skill band | Wages | `pay.RULES`, fairness "Minimum wage" | Make-up flagged per worker | 8.5 |
+| Equal pay regardless of gender | Wages | fairness "Equal pay" | Within-band daily base gap > 5% flagged for written review | 8.5 |
+| Principal employer answers for contractors | OSH / SS | fairness "Deposits match deductions" | PF deposited (EPFO ECR) vs deducted per contractor | 8.8 |
+| Grievance mechanism for ≥ 20 workers | IR | `voice.py` | Anonymous, one per topic per month, threshold publication, response board | 8.8 |
+| Inspector view, digital registers | Wages | `ledger.verify`, `/api/ledger/*` | Registers and payslips generated from signed events; auditor role read-only | 8.8 |
+| Corrections, not overwrites | (design) | `POST /api/punch/correction` | New signed event with reason and approver | 8.7 |
+
 ## 3. The trust layer
 
 Each event body is `{seq, site, ts, type, worker_id, payload, prev_hash}`.
@@ -231,6 +249,7 @@ signed `events` table is the source of truth. Voice report rows have no worker c
 ## 8. Security and privacy
 
 - **Integrity:** signature per event, hash chain, published daily roots, worker-held receipts.
+- **Access control:** signed bearer tokens and a deny-by-default policy table (`saakshi/auth.py`); workers read only their own pay and receipts; the voice relay accepts no token and strips identity headers.
 - **Browser:** strict CSP (`script-src 'self'`, no inline scripts), `X-Frame-Options: DENY`,
   `nosniff`, `no-referrer`, `no-store` on the API; server text is escaped before it reaches the DOM.
 - **Input:** pydantic models with patterns and length limits; list and page sizes capped.
@@ -244,20 +263,34 @@ signed `events` table is the source of truth. Voice report rows have no worker c
 
 ## 9. Testing
 
+191 tests, 93% line coverage of `saakshi/` (CI gate: 83%). Details in [docs/TESTING.md](docs/TESTING.md).
+
 | Suite | What it proves |
 | --- | --- |
-| `test_ledger.py` | naive edit, re-hash edit, payload edit, deletion and root mismatch are all caught; receipts expose the edit; corrections append; Merkle proofs |
-| `test_pay.py` | 2× pricing, break rule, corrections, cap warning and block, consent signature, decline, fatigue, deduction cap, payslip held after a DB edit, seeded demo state |
-| `test_voice.py` | blind-signature round trip, unlinkability, double-spend and re-issue refused, no identity stored, threshold, safety escalation, scrub, JS/Python hash match |
-| `test_passport.py` | issued exactly at threshold, once; Python and Node signature checks; tamper fails; revocation; matching; QR |
-| `test_edge.py` | box signature, privacy guard, unknown kinds, summaries |
-| `scripts/demo.py` | the 7-step demo end to end with pass/fail checks |
+| `test_ledger.py`, `test_ledger_property.py` | Every single-row edit, deletion or swap is caught (Hypothesis, random ledgers); receipts expose the edit; Merkle proofs |
+| `test_pay.py` | 2× pricing, break rule, corrections, cap, consent signature, decline, fatigue, deduction cap, payslip held after a DB edit |
+| `test_voice.py` | Blind-signature round trip, unlinkability, double-spend, no identity stored, threshold, JS/Python hash match |
+| `test_passport.py`, `test_edge.py` | Issue at threshold, Python + Node signature checks, revocation; box signature and privacy guard |
+| `test_security.py` | Deny by default, 401 vs 403, workers cannot read others' pay or accept others' overtime, relay anonymous, token tamper/expiry |
+| `test_perf.py` | Cache hit is a copy; same-connection and other-process edits invalidate the cache and are caught |
+| `test_contract.py`, `test_console.py`, `test_i18n.py` | Code matches API.md; console survives a failing module; all four languages complete |
+| `test_e2e_demo.py` | The 7-step demo end to end |
 
-CI (`.github/workflows/ci.yml`) runs ruff, pytest and the scripted demo.
+## 10. Further reading
 
-## 10. Scaling path
+[SECURITY.md](SECURITY.md) (threat model) · [docs/PERFORMANCE.md](docs/PERFORMANCE.md) (benchmarks) ·
+[docs/TESTING.md](docs/TESTING.md) (test strategy) · [API.md](API.md) (HTTP contract)
 
-`verify()` is a full scan, fine for a site-day of events. In production it becomes incremental:
-verify from the last checkpointed root, and keep per-site chains so sites verify independently.
-Daily roots can be anchored on a public chain when a buyer or regulator asks; personal data
-never goes on-chain.
+## 11. Performance and scaling
+
+`Ledger.verify()` caches its result under a fingerprint of `(conn.total_changes,
+PRAGMA data_version, COUNT(*), MAX(seq))`. Any write through our connection (raw SQL included)
+moves `total_changes`; any commit from another process moves `data_version`; so a cache can never
+hide a tamper. A miss explained only by the ledger's own appends verifies just the new tail;
+anything else re-verifies from genesis. Pay and console results are memoised on the same
+fingerprint. On 20,353 events: console overview 19.8 s → 5.7 ms, payslip 1.2 s → 0.9 ms, verify
+after 100 appends 1.1 s → 7 ms (cache hits; see [docs/PERFORMANCE.md](docs/PERFORMANCE.md), `scripts/bench.py`).
+
+Production path: per-site chains so sites verify independently, signed checkpointed roots,
+a background full re-check, Postgres with an append-only role, and public anchoring of daily
+roots when a buyer or regulator asks. Personal data never goes on-chain.

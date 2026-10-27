@@ -7,7 +7,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import config, console, core_api, edge, passport, pay, seed, state, voice
+from . import auth, config, console, core_api, edge, passport, pay, seed, state, voice
 
 
 @asynccontextmanager
@@ -19,6 +19,9 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Saakshi", description="Shared, tamper-evident work records", lifespan=lifespan)
+# Deny-by-default authorization (policy table in saakshi/auth.py). Added first so the security-headers
+# middleware below wraps it and 401/403 responses carry the same headers.
+app.add_middleware(auth.AuthMiddleware)
 # Strict browser policy: no inline or third-party scripts, no framing, no sniffing.
 CSP = ("default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
        "font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; "
@@ -39,7 +42,7 @@ async def security_headers(request: Request, call_next):
     return resp
 
 
-for m in (core_api, pay, voice, passport, edge, console):
+for m in (auth, core_api, pay, voice, passport, edge, console):
     app.include_router(m.router)
 
 for name in ("worker", "console", "verify", "shared"):

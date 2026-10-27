@@ -16,6 +16,41 @@ garment unit in Tiruppur, Tamil Nadu.
 - **Offline credential verifier**: [https://pramaanos.vercel.app/verify/](https://pramaanos.vercel.app/verify/)
 - **API docs**: [https://pramaanos.vercel.app/docs](https://pramaanos.vercel.app/docs) · contract: [API.md](API.md)
 
+## The problem, and how each part answers it
+
+India's labour-intensive workplaces run on records only the employer holds. Among regular-wage
+employees, 58% have no written contract and 53% no social security (PLFS 2023-24); 42% of
+organised-factory workers are on contract (ASI 2023-24). Workers and employers complain about
+opposite things, but the complaints share one root: **no record of work that both sides trust and
+neither can quietly change.**
+
+| Complaint (from the research dossier) | Root cause | Saakshi feature | Where you can see it |
+| --- | --- | --- | --- |
+| Wages late or short; PF deducted but not deposited | Pay computed in private spreadsheets | Deterministic pay from signed hours; payslip explained in her language; PF deposit vs deduction check | Demo step 2, Pay screen, `pay.py`, `test_pay.py` |
+| Forced or unpaid overtime | No consent record, no cap at the point of rostering | Signed consent by the worker's key; 144 h/quarter cap and fatigue limits block the request before it happens | Demo step 2, `test_pay.py::test_cap_near_warning_and_blocking` |
+| "Records prepared for the auditor" | Employer can rewrite history | Signed hash chain, daily Merkle root, worker-held receipts; payslip refuses edited records | Demo step 3 (live tamper), `test_ledger.py` |
+| Fear of speaking up; retaliation | Grievances are identifiable | Blind-signature tokens, third-party relay, publish at 3 corroborating reports | Demo step 4, `test_voice.py::test_unlinkability` |
+| Surveillance and "watched, judged, blocked" | Cameras record people | Edge events only; faces and images rejected; every look-up of a person's record needs a reason and is shown to them | Demo step 5, `test_edge.py`, access log in the worker app |
+| No proof of skill; fake credentials; bias against groups | No portable, signed record of individual skill | Credential issued automatically from production data, verifiable offline by any employer | Demo step 6, `/verify/`, `test_passport.py` |
+| Compliance load (69,233 compliances) | Rules applied after harm, in audits | Labour-code rules run as checks before the action; exceptions ranked by legal risk | Console overview, `console.py` |
+
+**SDG 8 targets moved** (each tracked live on the console scorecard, `GET /api/sdg8/scorecard`):
+8.2 productivity (line efficiency), 8.3 formalisation (workers holding their own signed record),
+8.5 decent work and equal pay (minimum-wage and within-band gap checks), 8.6 skills (credentials
+per worker-year), 8.7 forced labour (overtime with signed consent), 8.8 labour rights and safe work
+(near-misses logged, anonymous reports answered).
+
+## Engineering evidence
+
+| Rubric area | Evidence |
+| --- | --- |
+| Problem statement alignment | The table above; [ARCHITECTURE.md](ARCHITECTURE.md) maps each module to a labour-code rule and SDG target |
+| Security | [SECURITY.md](SECURITY.md) threat model; signed ledger; role-based API access; strict CSP; anonymous relay stores no identity |
+| Efficiency | [docs/PERFORMANCE.md](docs/PERFORMANCE.md): cached and incremental verification, benchmark script `scripts/bench.py` |
+| Testing | [docs/TESTING.md](docs/TESTING.md): unit, property-based tamper tests, API contract test, end-to-end demo test, coverage gate in CI |
+| Accessibility | Four languages with read-aloud, axe-core WCAG 2.1 AA audit of both apps, keyboard navigation, status never by colour alone |
+| Code quality | One module per engine behind a written [API contract](API.md); ruff lint clean; CI on every push |
+
 ## Run it locally
 
 ```bash
@@ -32,7 +67,7 @@ uvicorn saakshi.app:app --port 8000        # seeds a week of signed history on f
 Tests and the scripted demo:
 
 ```bash
-python3 -m pytest                       # 54 tests: ledger, pay maths, voice unlinkability, passport, edge
+python3 -m pytest                       # 191 tests (93% coverage): ledger, pay, voice, passport, edge, security, perf, contract
 python3 scripts/demo.py                 # the 3-minute demo, in-process, with pass/fail checks
 python3 scripts/demo.py --base http://localhost:8000 --db data/saakshi.db --pause   # live, with both UIs open
 python3 scripts/tamper.py               # the live tamper: edit Meena's punch-out straight in SQLite

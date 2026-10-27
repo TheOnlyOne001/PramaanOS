@@ -9,7 +9,7 @@ jobs:
         with: { python-version: "3.13" }
       - uses: actions/setup-node@v4
         with: { node-version: "22" }
-      - run: pip install -r requirements.txt ruff
+      - run: pip install -r requirements.txt ruff pytest-cov hypothesis
       - run: ruff check saakshi scripts tests
-      - run: python -m pytest
+      - run: python -m pytest --cov=saakshi --cov-report=term-missing --cov-fail-under=83
       - run: python scripts/demo.py

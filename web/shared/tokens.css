@@ -103,3 +103,8 @@ button, input, select, textarea { font: inherit; color: inherit; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
+
+/* a11y: skip link, visible only when focused */
+.skip-link { position: absolute; left: 8px; top: -60px; z-index: 1000; background: var(--accent, #0b6b68); color: var(--accent-ink, #fff); padding: 10px 16px; border-radius: 8px; font-weight: 700; text-decoration: none; }
+.skip-link:focus, .skip-link:focus-visible { top: 8px; outline: 3px solid #fff; outline-offset: 2px; box-shadow: 0 0 0 5px var(--accent, #0b6b68); }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }

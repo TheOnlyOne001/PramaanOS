@@ -12,7 +12,8 @@ const SEV = { critical: ["crit", "⛔", "Critical"], high: ["warn", "⚠", "High
 const KIND = { restricted_zone_entry: "restricted entry", ppe_noncompliance: "PPE missing", ppe_compliance_rate: "PPE compliance",
   fire_smoke: "fire / smoke", blocked_exit: "blocked exit", person_down: "person down", queue_length: "queue length", near_miss: "near miss", heat_wbgt: "heat (WBGT)" };
 const na = (what) => `<div class="card empty">🕓 ${esc(what || "Not available yet")}</div>`;
-const ev = (seq, ref) => seq == null ? "" : `<a class="ref" href="/api/ledger/events/${encodeURIComponent(seq)}" target="_blank" rel="noopener" title="Evidence: ledger event #${esc(seq)}">#${esc(seq)}${ref ? " · " + esc(ref) : ""}</a>`;
+const ev = (seq, ref) => seq == null ? "" : `<a class="ref" href="/api/ledger/events/${encodeURIComponent(seq)}" data-event="${esc(seq)}" aria-label="Evidence: ledger event ${esc(seq)}${ref ? " " + esc(ref) : ""}">#${esc(seq)}${ref ? " · " + esc(ref) : ""}</a>`;
+const short = (h, n = 16) => { const x = String(h || ""); return x.length > n ? x.slice(0, n) + "…" : x || "—"; };
 const evList = (l) => Array.isArray(l) && l.length ? `<span class="evid">${l.slice(0, 5).map((s) => ev(s)).join(" ")}${l.length > 5 ? ` +${l.length - 5}` : ""}</span>` : "";
 const chip = (cls, icon, word) => `<span class="chip ${cls}"><span aria-hidden="true">${icon}</span> ${esc(word)}</span>`;
 const capChip = (s) => s === "over" ? chip("crit", "⛔", "Over cap") : s === "near" ? chip("warn", "⚠", "Near cap") : chip("ok", "✓", "OK");
@@ -29,6 +30,7 @@ function problemsText(v) {
   }
   return parts.join(" · ");
 }
+function setHTML(el, html) { if (el._html === html) return; el._html = html; const had = el.contains(document.activeElement) && document.activeElement.dataset; const key = had && (document.activeElement.dataset.roots !== undefined ? "[data-roots]" : document.activeElement.dataset.open ? `[data-open="${document.activeElement.dataset.open}"]` : null); el.innerHTML = html; if (key) { const n = el.querySelector(key); if (n) n.focus(); } }
 async function pollVerify() {
   const r = await api("/ledger/verify");
   const el = $("#integrity");
@@ -38,18 +40,18 @@ async function pollVerify() {
     const today = (v.roots || []).find((x) => x.day === DEMO_DAY);
     const pub = today && today.published;
     el.className = "integrity ok";
-    el.innerHTML = `<div class="int-row"><span class="int-icon" aria-hidden="true">✓</span><div class="int-text"><b>Ledger verified</b> · ${esc(num(v.n_events, 0))} events · ${pub ? "today's root published" : "today's root not yet published"}
-      <span class="mono small">head ${esc(String(v.head || "").slice(0, 12))} · checked ${esc(hm(v.checked_at))}</span></div></div>`;
+    setHTML(el, `<div class="int-row"><span class="int-icon" aria-hidden="true">✓</span><div class="int-text"><b>Ledger verified</b> · ${esc(num(v.n_events, 0))} events · ${pub ? "today's root published" : "today's root not yet published"}
+      <span class="mono small">head ${esc(String(v.head || "").slice(0, 12))} · checked ${esc(hm(v.checked_at))}</span></div><button type="button" class="btn light" data-roots>Daily roots</button></div>`);
     S.wasBad = false; document.title = "Saakshi Console";
     return;
   }
   const first = (v.problems || []).find((p) => p.worker_id);
   el.className = "integrity bad" + (S.wasBad ? "" : " flash");
-  el.innerHTML = `<div class="int-row"><span class="int-icon" aria-hidden="true">⚠</span><div class="int-text">
+  setHTML(el, `<div class="int-row"><span class="int-icon" aria-hidden="true">⚠</span><div class="int-text">
       <b class="int-title">Integrity alert</b><div class="int-detail">${esc(problemsText(v))}</div>
       <span class="small">Detected ${esc(hm(v.checked_at))} · payroll for affected workers is blocked · ${esc(v.n_events)} events checked</span></div>
-      ${first ? `<button type="button" class="btn light" data-open="${esc(first.worker_id)}">Open ${esc(first.worker_name || first.worker_id)}'s record</button>` : ""}</div>
-    <details class="int-hashes"><summary>Show hashes</summary>${(v.problems || []).map((p) => `<div class="mono small">#${esc(p.seq ?? "root")} ${esc(p.kind)} · stored ${esc(String(p.stored_hash || "").slice(0, 16))} · now ${esc(String(p.recomputed_hash || "").slice(0, 16))}</div>`).join("")}</details>`;
+      <div class="int-actions">${first ? `<button type="button" class="btn light" data-open="${esc(first.worker_id)}">Open ${esc(first.worker_name || first.worker_id)}'s record</button>` : ""}<button type="button" class="btn light" data-roots>Daily roots</button></div></div>
+    <details class="int-hashes"><summary>Show hashes</summary>${(v.problems || []).map((p) => `<div class="mono small">#${esc(p.seq ?? "root")} ${esc(p.kind)} · stored ${esc(String(p.stored_hash || "").slice(0, 16))} · now ${esc(String(p.recomputed_hash || "").slice(0, 16))}</div>`).join("")}</details>`);
   if (!S.wasBad) { document.body.classList.add("alarm"); setTimeout(() => document.body.classList.remove("alarm"), 1600); }
   S.wasBad = true; document.title = "⚠ Integrity alert · Saakshi";
 }
@@ -71,8 +73,52 @@ async function exceptions() {
 function act(link) {
   if (!link) return;
   if (link.startsWith("worker:")) return askReason(link.slice(7));
+  if (link.startsWith("/api/ledger/events/")) return showEvent(link.slice("/api/ledger/events/".length).split(/[/?#]/)[0]);
+  if (link.startsWith("/api/ledger/roots")) return showRoots();
+  if (link.startsWith("/api/workers/")) return askReason(link.split("/")[3]);
   const h = link.includes("#") ? link.slice(link.indexOf("#") + 1) : link;
-  if (SECTIONS.some((s) => s[0] === h)) go(h);
+  if (SECTIONS.some((s) => s[0] === h)) { go(h); setTimeout(() => { const m = $("#main h1") || $("#main"); if (m) { m.setAttribute("tabindex", "-1"); m.focus(); } }, 400); }
+}
+
+// --- Evidence modals --------------------------------------------------------------------
+async function showEvent(seq) {
+  const strip = (p) => p.replace(/^\/api/, "");
+  $("#modalCard").innerHTML = `<h2 id="modalTitle">Ledger event #${esc(seq)}</h2><p class="muted" role="status">Loading evidence…</p>`;
+  openModal();
+  const [e, pr] = await Promise.all([api(strip(`/api/ledger/events/${encodeURIComponent(seq)}`)), api(strip(`/api/ledger/events/${encodeURIComponent(seq)}/proof`))]);
+  if (!e.ok) { $("#modalCard").innerHTML = `<h2 id="modalTitle">Ledger event #${esc(seq)}</h2>${na(`Event not available (${e.error})`)}<div class="rowb"><span></span><button type="button" class="btn primary" data-close>Close</button></div>`; focusFirst(); return; }
+  const x = e.data, p = pr.ok ? pr.data : null;
+  const bad = ((S.verify && S.verify.problems) || []).filter((q) => q.seq == x.seq);
+  const row = (k, v, mono = true) => `<tr><th scope="row">${esc(k)}</th><td class="${mono ? "mono small brk" : ""}">${v}</td></tr>`;
+  $("#modalCard").innerHTML = `<h2 id="modalTitle">Ledger event #${esc(x.seq)} <span class="mono small">${esc(x.ref || "")}</span></h2>
+    ${bad.length ? `<p class="warnline" role="alert">⚠ ${esc(bad.map((q) => String(q.kind).replace(/_/g, " ")).join(", "))} — this row no longer matches its signature.</p>` : `<p>${chip("ok", "✓", "Signature and chain check passed")}</p>`}
+    <div class="table-wrap"><table class="kv"><caption class="sr">Event fields</caption><tbody>
+      ${row("Type", esc(x.type), false)}
+      ${row("Worker", x.worker_id ? `${esc(S.names[x.worker_id] || x.worker_id)} <span class="mono small">${esc(x.worker_id)}</span>` : "Site", false)}
+      ${row("Time", `${esc(fmtDay(x.day || x.ts))} ${esc(hm(x.ts))} <span class="mono small">${esc(x.ts)}</span>`, false)}
+      ${row("Hash", esc(x.hash))}
+      ${row("Previous hash", esc(x.prev_hash))}
+      ${row("Signature", esc(x.sig))}
+      ${row("Signer", esc(x.signer || "site"), false)}
+      ${row("Payload", `<code>${esc(JSON.stringify(x.payload))}</code>`)}
+    </tbody></table></div>
+    <h3>Merkle inclusion proof</h3>
+    ${p ? `<p class="small">Day <b>${esc(p.day)}</b> · root <span class="mono">${esc(short(p.root, 24))}</span> · ${esc((p.proof || []).length)} sibling hash${(p.proof || []).length === 1 ? "" : "es"}</p>
+      ${(p.proof || []).length ? `<ol class="proof mono small">${p.proof.map((s) => `<li>${esc(typeof s === "string" ? s : `${s.side || s.position || s.dir || ""} ${s.hash || s.sibling || JSON.stringify(s)}`)}</li>`).join("")}</ol>` : `<p class="muted small">Only event that day: its hash is the root.</p>`}` : na(`Proof not available (${pr.error})`)}
+    <div class="rowb"><a class="btn" href="/api/ledger/events/${encodeURIComponent(x.seq)}" target="_blank" rel="noopener">Raw JSON <span class="sr">(opens in a new tab)</span></a><button type="button" class="btn primary" data-close>Close</button></div>`;
+  focusFirst();
+}
+async function showRoots() {
+  $("#modalCard").innerHTML = `<h2 id="modalTitle">Published daily roots</h2><p class="muted" role="status">Loading…</p>`;
+  openModal();
+  const r = await api("/ledger/roots");
+  const rows = r.ok ? (Array.isArray(r.data) ? r.data : r.data.roots || []) : [];
+  $("#modalCard").innerHTML = `<h2 id="modalTitle">Published daily roots</h2>
+    <p class="small muted">Each day's Merkle root is published. If anyone edits a signed row, the recomputed root stops matching.</p>
+    ${r.ok ? `<div class="table-wrap"><table><caption class="sr">Published versus current Merkle roots per day</caption><thead><tr><th scope="col">Day</th><th scope="col">Events</th><th scope="col">Published</th><th scope="col">Current</th><th scope="col">Status</th></tr></thead><tbody>
+      ${[...rows].reverse().map((x) => `<tr class="${x.ok ? "" : "badrow"}"><td>${esc(fmtDay(x.day))}</td><td>${esc(x.n_events ?? "—")}</td><td class="mono small">${esc(short(x.published))}</td><td class="mono small">${esc(short(x.current))}</td><td>${x.ok ? chip("ok", "✓", "OK") : chip("crit", "✗", "Mismatch")}</td></tr>`).join("")}</tbody></table></div>` : na(`Roots not available (${r.error})`)}
+    <div class="rowb"><span></span><button type="button" class="btn primary" data-close>Close</button></div>`;
+  focusFirst();
 }
 
 // --- Sections ------------------------------------------------------------------------
@@ -84,8 +130,8 @@ async function renderOverview(m) {
     <p class="muted">The console opens on what needs action, not on charts. Every individual look-up is shown to the worker.</p>
     <div class="card"><ul class="exc">${ex.length ? ex.map((e, i) => { const [c, ic, w] = SEV[e.severity] || SEV.medium; const ppl = Array.isArray(e.people) ? e.people.join(", ") : e.people;
       return `<li>${chip(c, ic, w)}<div class="exc-main"><b>${esc(e.title)}</b>${e.detail ? `<div class="muted small">${esc(e.detail)}</div>` : ""}
-        ${ppl ? `<div class="small">👥 ${esc(ppl)}</div>` : ""}${e.seq != null ? ev(e.seq) : ""}</div>
-        ${e.action ? `<button type="button" class="btn" data-act="${i}">${esc(e.action)} →</button>` : ""}</li>`; }).join("") : `<li class="muted">✓ Nothing needs attention right now.</li>`}</ul></div>
+        ${ppl ? `<div class="small people"><span aria-hidden="true">👥</span><span class="sr">People:</span> ${(Array.isArray(e.people) ? e.people : [e.people]).map((p) => S.names[p] ? `<button type="button" class="linkish" data-open="${esc(p)}" aria-label="Open ${esc(S.names[p])}'s record (${esc(p)})">${esc(S.names[p])} <span class="mono small">${esc(p)}</span></button>` : esc(p)).join(", ")}</div>` : ""}${e.seq != null ? ev(e.seq) : ""}</div>
+        ${e.action ? `<button type="button" class="btn" data-act="${i}" aria-label="${esc(e.action)}: ${esc(e.title)}">${esc(e.action)} <span aria-hidden="true">→</span></button>` : ""}</li>`; }).join("") : `<li class="muted">✓ Nothing needs attention right now.</li>`}</ul></div>
     <h2>Latest camera events</h2><div class="feed">${edge.ok ? edge.data.map(edgeCard).join("") || `<p class="muted">No events yet.</p>` : na()}</div>`;
   m.querySelectorAll("[data-act]").forEach((b) => (b.onclick = () => act(ex[+b.dataset.act].link)));
 }
@@ -108,7 +154,7 @@ async function renderHours(m) {
     <section class="card"><h2>Requests and consent <span class="muted small">live</span></h2><div id="reqs">${na("Loading…")}</div></section></div>
     <section class="card"><h2>Quarterly overtime cap (144 h)</h2>${cap.ok ? `<div class="table-wrap"><table><thead><tr><th>Worker</th><th>Used / cap</th><th>Remaining</th><th>Status</th></tr></thead><tbody>
       ${S.cap.map((c) => { const pct = Math.min(100, c.pct ?? (c.used / c.cap) * 100); return `<tr><td><button type="button" class="linkish" data-open="${esc(c.worker_id)}">${esc(c.name)}</button> <span class="mono small">${esc(c.worker_id)}</span></td>
-        <td><div class="meter ${c.status === "over" ? "crit" : c.status === "near" ? "warn" : ""}" role="meter" aria-label="${esc(c.name)} overtime" aria-valuenow="${esc(c.used)}" aria-valuemax="${esc(c.cap)}"><i style="width:${pct}%"></i></div><span class="small">${esc(num(c.used))} / ${esc(num(c.cap, 0))} h</span></td>
+        <td><div class="meter ${c.status === "over" ? "crit" : c.status === "near" ? "warn" : ""}" role="meter" aria-label="${esc(c.name)} overtime" aria-valuemin="0" aria-valuenow="${esc(c.used)}" aria-valuemax="${esc(c.cap)}"><i style="width:${pct}%"></i></div><span class="small">${esc(num(c.used))} / ${esc(num(c.cap, 0))} h</span></td>
         <td>${esc(num(c.remaining))} h</td><td>${capChip(c.status)}</td></tr>`; }).join("")}</tbody></table></div>` : na("Overtime cap not available yet")}</section>`;
   $("#otForm").onsubmit = async (e) => {
     e.preventDefault();
@@ -234,21 +280,47 @@ function askReason(wid) {
     $("#cancelM").onclick = closeModal; $("#cancelM").focus();
   };
 }
-function openModal() { $("#modal").classList.remove("hidden"); setTimeout(() => { const i = $("#modalCard input, #modalCard button"); if (i) i.focus(); }, 30); }
-function closeModal() { $("#modal").classList.add("hidden"); }
+let lastFocus = null;
+const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])';
+function focusFirst() { setTimeout(() => { const i = $("#modalCard input:checked, #modalCard input, #modalCard [data-close], #modalCard button"); (i || $("#modalCard")).focus(); }, 30); }
+function openModal() {
+  const m = $("#modal");
+  if (m.classList.contains("hidden")) lastFocus = document.activeElement;
+  m.classList.remove("hidden");
+  document.querySelectorAll("body > :not(#modal):not(script)").forEach((n) => n.setAttribute("inert", ""));
+  focusFirst();
+}
+function closeModal() {
+  const m = $("#modal"); if (m.classList.contains("hidden")) return;
+  m.classList.add("hidden");
+  document.querySelectorAll("[inert]").forEach((n) => n.removeAttribute("inert"));
+  if (lastFocus && !document.contains(lastFocus) && lastFocus.dataset && lastFocus.dataset.event) lastFocus = document.querySelector(`a[data-event="${lastFocus.dataset.event}"]`);
+  if (lastFocus && document.contains(lastFocus)) lastFocus.focus();
+  else { const h = $("#main h1") || $("#main"); if (h) { h.setAttribute("tabindex", "-1"); h.focus(); } }
+  lastFocus = null;
+}
+function trapTab(e) {
+  if (e.key !== "Tab" || $("#modal").classList.contains("hidden")) return;
+  const f = [...$("#modalCard").querySelectorAll(FOCUSABLE)].filter((n) => n.offsetParent !== null);
+  if (!f.length) { e.preventDefault(); return; }
+  const first = f[0], last = f[f.length - 1];
+  if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+}
 
 // --- Shell -------------------------------------------------------------------------------
 const RENDER = { overview: renderOverview, hours: renderHours, pay: renderPay, skills: renderSkills, safety: renderSafety, voice: renderVoice, sdg8: renderSdg };
 function go(sec, push = true) {
   S.sec = RENDER[sec] ? sec : "overview";
   if (push) history.replaceState(null, "", "#" + S.sec);
-  $("#nav").innerHTML = SECTIONS.map(([id, ic, name]) => `<button type="button" class="nav-item ${id === S.sec ? "active" : ""}" data-sec="${id}" aria-current="${id === S.sec ? "page" : "false"}"><span aria-hidden="true">${ic}</span> ${esc(name)}</button>`).join("");
+  $("#nav").innerHTML = SECTIONS.map(([id, ic, name]) => `<button type="button" class="nav-item ${id === S.sec ? "active" : ""}" data-sec="${id}" ${id === S.sec ? 'aria-current="page"' : ""}><span aria-hidden="true">${ic}</span> ${esc(name)}</button>`).join("");
   const m = $("#main");
   m.innerHTML = na("Loading…");
   RENDER[S.sec](m).catch((e) => { console.error(e); m.innerHTML = na("Something went wrong loading this section"); });
 }
 async function tick() {
   await pollVerify();
+  if (!$("#modal").classList.contains("hidden")) return; // keep the modal's trigger in the DOM so focus can return to it
   if (S.sec === "hours") refreshReqs();
   if (S.sec === "safety") refreshFeed();
   if (S.sec === "overview" && !document.querySelector("#main :focus")) { const m = $("#main"); renderOverview(m).catch(() => {}); }
@@ -258,10 +330,15 @@ async function boot() {
   const [site, w] = await Promise.all([api("/site"), api("/workers")]);
   if (site.ok) $("#site").textContent = `${site.data.name} · ${site.data.site_id} · ${site.data.state} · ${fmtDay(site.data.demo_day, "en-IN", { day: "numeric", month: "short", year: "numeric" })}`;
   if (w.ok) { S.workers = w.data; w.data.forEach((x) => (S.names[x.id] = x.name)); }
-  $("#nav").onclick = (e) => { const b = e.target.closest("[data-sec]"); if (b) go(b.dataset.sec); };
+  $("#nav").onclick = (e) => { const b = e.target.closest("[data-sec]"); if (b) { go(b.dataset.sec); setTimeout(() => { const n = $(`#nav [data-sec="${b.dataset.sec}"]`); if (n) n.focus(); }, 0); } };
   document.body.addEventListener("click", (e) => { const b = e.target.closest("[data-open]"); if (b) askReason(b.dataset.open); });
   $("#modal").addEventListener("click", (e) => { if (e.target.id === "modal") closeModal(); });
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); trapTab(e); });
+  document.body.addEventListener("click", (e) => {
+    const a = e.target.closest("a[data-event]"); if (a && !e.ctrlKey && !e.metaKey && !e.shiftKey) { e.preventDefault(); showEvent(a.dataset.event); return; }
+    if (e.target.closest("[data-close]")) closeModal();
+    if (e.target.closest("[data-roots]")) showRoots();
+  });
   $("#demoToggle").onclick = () => { const p = $("#demoPanel"); p.classList.toggle("hidden"); $("#demoToggle").setAttribute("aria-expanded", !p.classList.contains("hidden")); };
   $("#demoPanel").onclick = async (e) => {
     const b = e.target.closest("[data-demo]"); if (!b) return;

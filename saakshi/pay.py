@@ -86,8 +86,15 @@ def _accepted_by_date(wid: str) -> dict:
 # --- Proof of Hours ------------------------------------------------------------
 
 def hours(wid: str, day_from: str = "2026-10-01", day_to: str = config.DEMO_DAY) -> list[dict]:
-    """Shifts built from signed punches, with corrections applied as new events."""
+    """Shifts built from signed punches, with corrections applied as new events.
+
+    Memoised until the next database write (any table, any connection), so the many hours() calls
+    behind one console/fairness request read the punches once."""
     L = state.get().ledger
+    return L.memo(("pay.hours", wid, day_from, day_to), lambda: _hours(L, wid, day_from, day_to))
+
+
+def _hours(L, wid: str, day_from: str, day_to: str) -> list[dict]:
     evs = L.events(worker_id=wid, type_prefix="punch.", day_from=day_from, day_to=day_to)
     times = {e["seq"]: e["ts"] for e in evs if e["type"] in ("punch.in", "punch.out")}
     corrected = set()
@@ -269,8 +276,11 @@ def _deposits(period: str) -> dict:
             for e in state.get().ledger.events(type="pf.deposit") if e["payload"].get("period") == period}
 
 
-def payslip(wid: str, period: str = config.DEMO_DAY[:7], upto: str | None = None) -> dict:
-    """Pay for `period` from signed events; `upto` limits it to wages earned up to that day."""
+def payslip(wid: str, period: str = config.DEMO_DAY[:7], upto: str | None = None,
+            verification: dict | None = None) -> dict:
+    """Pay for `period` from signed events; `upto` limits it to wages earned up to that day.
+
+    `verification`: a Ledger.verify() result to reuse (callers looping over workers verify once)."""
     st = state.get()
     w = _worker(wid)
     band = w["skill_band"]
@@ -297,7 +307,7 @@ def payslip(wid: str, period: str = config.DEMO_DAY[:7], upto: str | None = None
     esi = _r(RULES["esi_rate"] * gross) if gross <= RULES["esi_gross_ceiling"] else 0.0
     total_ded = _r(pf + esi)
     evidence = [seq for s in shifts for seq in s["evidence"]] + [e["seq"] for e in opening]
-    v = st.ledger.verify()
+    v = verification if verification is not None else st.ledger.verify()
     bad = [p for p in v["problems"] if p.get("worker_id") == wid or p["kind"] == "root_mismatch"]
     checks = [
         {"name": "Ledger integrity", "ok": not bad,
@@ -352,8 +362,16 @@ def _gini(xs: list[float]) -> float:
 
 
 def fairness(period: str = config.DEMO_DAY[:7]) -> dict:
+    """Memoised until the next database write: the console overview, the SDG scorecard and the
+    fairness endpoint share one computation per state of the ledger."""
+    L = state.get().ledger
+    return L.memo(("pay.fairness", period), lambda: _fairness(period))
+
+
+def _fairness(period: str) -> dict:
     ws = _workers()
-    slips = {wid: payslip(wid, period) for wid in ws}
+    v = state.get().ledger.verify()  # once for every payslip below
+    slips = {wid: payslip(wid, period, verification=v) for wid in ws}
     deps = _deposits(period)
     checks = []
 
@@ -373,7 +391,8 @@ def fairness(period: str = config.DEMO_DAY[:7]) -> dict:
     for wid, s in slips.items():
         c = ws[wid]["contractor"] or "direct"
         upto = deps.get(c, {}).get("wages_upto")
-        pf_upto = payslip(wid, period, upto=upto)["deductions"][0]["amount"] if upto else s["deductions"][0]["amount"]
+        pf_upto = (payslip(wid, period, upto=upto, verification=v)["deductions"][0]["amount"] if upto
+                   else s["deductions"][0]["amount"])
         by_con[c] = by_con.get(c, 0) + pf_upto
     detail = []
     for c, ded in by_con.items():
@@ -415,8 +434,9 @@ def fairness(period: str = config.DEMO_DAY[:7]) -> dict:
 def run(period: str) -> dict:
     st = state.get()
     results = []
+    v = st.ledger.verify()  # once per run; pay.run events appended below are signed by this ledger
     for wid, w in _workers().items():
-        s = payslip(wid, period)
+        s = payslip(wid, period, verification=v)
         failed = [c["name"] for c in s["checks"] if not c["ok"]]
         if not s["blocked"]:
             st.ledger.append("pay.run", {"period": period, "gross": s["gross"], "net": s["net"]}, worker_id=wid)

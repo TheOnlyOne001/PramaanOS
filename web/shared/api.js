@@ -1,14 +1,93 @@
 // Tiny fetch helper shared by the worker app and the console.
 // Never throws: returns {ok, status, data, error} so screens can degrade to "not available yet".
+//
+// Auth: every call carries `Authorization: Bearer <token>` (policy in saakshi/auth.py).
+// Demo: tokens come from POST /api/auth/demo-login (works only with SAAKSHI_DEMO=1). In production the
+// worker signs in with phone OTP / a PIN on a shared phone and staff via SSO; the header is the same.
+
+const PAGE = location.pathname.startsWith("/console") ? "console" : "worker";
+const WID = (() => {
+  try { return new URLSearchParams(location.search).get("w") || "W001"; } catch { return "W001"; }
+})();
+const SUBJECT = { worker: WID, supervisor: "S001", hr: "H001", auditor: "A001" };
+const PUBLIC = /^\/(relay\/voice\/reports|demo\/|auth\/demo-login)/;
+const _tokens = {};
+const _pending = {};
+
+function _store(role, tok) {
+  _tokens[role] = tok;
+  try { if (tok) sessionStorage.setItem(`saakshi.tok.${role}.${SUBJECT[role]}`, tok); else sessionStorage.removeItem(`saakshi.tok.${role}.${SUBJECT[role]}`); } catch { /* storage off */ }
+}
+
+function _cached(role) {
+  if (_tokens[role]) return _tokens[role];
+  try {
+    const t = sessionStorage.getItem(`saakshi.tok.${role}.${SUBJECT[role]}`);
+    if (t) {
+      const exp = JSON.parse(atob(t.split(".")[0].replace(/-/g, "+").replace(/_/g, "/"))).exp;
+      if (exp * 1000 > Date.now() + 60000) return (_tokens[role] = t);
+    }
+  } catch { /* ignore */ }
+  return null;
+}
+
+async function _login(role) {
+  if (!_pending[role]) {
+    _pending[role] = (async () => {
+      const body = role === "worker" ? { role, worker_id: WID } : { role };
+      const res = await fetch("/api/auth/demo-login", {
+        method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
+      });
+      if (!res.ok) return null;
+      const tok = (await res.json()).token || null;
+      _store(role, tok);
+      return tok;
+    })().catch(() => null).finally(() => { delete _pending[role]; });
+  }
+  return _pending[role];
+}
+
+// Which role this page acts as for a call. The worker app is the worker; the console is a supervisor,
+// switching to HR for payroll, fairness, root publishing and payslips.
+function roleFor(path, method) {
+  const p = path.split("?")[0];
+  if (PAGE === "worker") {
+    if (p === "/punch" && method === "POST") return "supervisor";  // demo kiosk: stands in for the gate device
+    return "worker";
+  }
+  if (/^\/(pay\/run|pay\/fairness|ledger\/roots\/publish)$/.test(p) || /^\/pay\/[^/]+\/payslip$/.test(p)) return "hr";
+  return "supervisor";
+}
+
+async function token(role) {
+  role = role || (PAGE === "console" ? "supervisor" : "worker");
+  return _cached(role) || (await _login(role));
+}
+
+async function header(role) {
+  const t = await token(role);
+  return t ? { Authorization: "Bearer " + t } : {};
+}
+
+if (typeof window !== "undefined") window.SaakshiAuth = { header, token };
 
 export async function api(path, { method = "GET", body } = {}) {
-  const opts = { method, headers: {} };
-  if (body !== undefined) {
-    opts.headers["content-type"] = "application/json";
-    opts.body = JSON.stringify(body);
-  }
+  const role = PUBLIC.test(path) ? null : roleFor(path, method);
+  const build = async () => {
+    const opts = { method, headers: role ? await header(role) : {} };
+    if (body !== undefined) {
+      opts.headers["content-type"] = "application/json";
+      opts.body = JSON.stringify(body);
+    }
+    return opts;
+  };
   try {
-    const res = await fetch("/api" + path, opts);
+    let res = await fetch("/api" + path, await build());
+    if (res.status === 401 && role) {  // expired, or keys rotated by a demo reset: sign in again once
+      _store(role, null);
+      res = await fetch("/api" + path, await build());
+    }
+    if (path.startsWith("/demo/reset") && res.ok) Object.keys(SUBJECT).forEach((r) => _store(r, null));
     const ct = res.headers.get("content-type") || "";
     let data = null;
     if (ct.includes("json")) data = await res.json().catch(() => null);

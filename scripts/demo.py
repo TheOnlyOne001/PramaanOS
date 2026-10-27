@@ -56,6 +56,63 @@ def ok(r, *codes):
     return r.json() if "json" in r.headers.get("content-type", "") else r.text
 
 
+# --- who is calling ---------------------------------------------------------------------------
+# The API is deny-by-default (saakshi/auth.py). The script plays every actor, so it signs in once
+# per role via the demo login and sends the token of whoever performs each step.
+HR_PATHS = ("/api/pay/run", "/api/pay/fairness", "/api/ledger/roots/publish")
+PUBLIC_PATHS = ("/api/demo/", "/api/auth/demo-login", "/api/relay/voice/reports", "/api/site", "/api/rules",
+                "/api/voice/topics", "/api/passport/issuers", "/api/passport/status", "/api/passport/credentials/",
+                "/api/edge/events")
+
+
+def actor(method: str, path: str, body) -> tuple[str, str | None] | None:
+    """(role, worker id) that performs this call in the story, or None for a public call."""
+    if path.startswith(PUBLIC_PATHS) and not path.endswith("/revoke") and not (method == "GET" and path == "/api/edge/events"):
+        return None
+    if path.startswith(HR_PATHS):
+        return ("hr", None)
+    parts = path.split("/")
+    if path.startswith("/api/workers/") and len(parts) > 4 and parts[4] in ("receipts", "access-log"):
+        return ("worker", parts[3])
+    if path.startswith("/api/pay/"):
+        return ("worker", parts[3])
+    if path == "/api/voice/issue" and isinstance(body, dict):
+        return ("worker", body.get("worker_id"))
+    if path.startswith("/api/ot/requests/") and path.endswith("/consent"):
+        return ("worker", "W001")  # Meena accepts her own request
+    return ("supervisor", None)
+
+
+class AuthedHttp:
+    """Wraps httpx.Client / TestClient: adds `Authorization: Bearer` for the acting role."""
+
+    def __init__(self, http):
+        self.http, self.tokens = http, {}
+
+    def token(self, role: str, wid: str | None = None) -> str:
+        k = (role, wid)
+        if k not in self.tokens:
+            r = self.http.post("/api/auth/demo-login", json={"role": role, "worker_id": wid})
+            r.raise_for_status()
+            self.tokens[k] = r.json()["token"]
+        return self.tokens[k]
+
+    def request(self, method: str, path: str, **kw):
+        who = actor(method, path, kw.get("json"))
+        if who:
+            kw["headers"] = {**(kw.get("headers") or {}), "Authorization": "Bearer " + self.token(*who)}
+        r = self.http.request(method, path, **kw)
+        if path == "/api/demo/reset":
+            self.tokens.clear()  # reset rotates every key, including the token key
+        return r
+
+    def get(self, path, **kw):
+        return self.request("GET", path, **kw)
+
+    def post(self, path, **kw):
+        return self.request("POST", path, **kw)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--base", help="URL of a running server; omit to run in-process")
@@ -73,6 +130,7 @@ def main():
         from fastapi.testclient import TestClient
         from saakshi.app import app
         http = TestClient(app)
+    http = AuthedHttp(http)
 
     ok(http.post("/api/demo/reset"))
     site = ok(http.get("/api/site"))

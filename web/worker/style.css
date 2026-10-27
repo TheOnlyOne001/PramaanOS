@@ -30,7 +30,7 @@ body { font-size: 17px; }
 .speak-icon { font-size: 1.35rem; }
 .speak-text { display: flex; flex-direction: column; line-height: 1.1; text-align: left; }
 .speak-text b { font-size: .8rem; }
-.speak-text small { font-size: .62rem; opacity: .75; }
+.speak-text small { font-size: .7rem; opacity: 1; }
 @media (max-width: 370px) { .speak-text { display: none; } }
 
 main { padding: 14px; display: flex; flex-direction: column; gap: 14px; outline: none; }
@@ -220,3 +220,10 @@ textarea:focus { outline: 2px solid var(--accent); }
 #banner.integrity { position: static; }
 .stat-val small { font-size: 1rem; font-weight: 600; }
 .int-inner { color: #fff; }
+
+/* a11y: 44px minimum touch targets on the worker app */
+.phone button, .phone select, .phone summary, .phone input, .phone a.btn, .phone .link-btn { min-height: 44px; }
+.phone .tab { min-width: 44px; }
+.phone input[type="checkbox"], .phone input[type="radio"] { min-height: 24px; min-width: 24px; }
+.phone a.ref { display: inline-flex; align-items: center; min-height: 24px; min-width: 24px; }
+img.qr { display: block; width: 180px; height: 180px; image-rendering: pixelated; background: #fff; }

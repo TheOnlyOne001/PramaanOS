@@ -11,10 +11,11 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <a class="skip-link" href="#main">Skip to content</a>
   <header class="topbar">
     <div class="brand"><span class="mark" aria-hidden="true">◆</span><b>Saakshi</b><span class="brand-sub">Employer console</span></div>
     <div class="site" id="site">…</div>
-    <div class="live"><span class="dot" aria-hidden="true"></span> Live · polling every 3 s</div>
+    <div class="live" aria-hidden="false"><span class="dot" aria-hidden="true"></span> Live · polling every 3 s</div>
   </header>
 
   <div id="integrity" class="integrity checking" role="status" aria-live="assertive">
@@ -23,23 +24,23 @@
 
   <div class="layout">
     <nav class="nav" id="nav" aria-label="Sections"></nav>
-    <main id="main"></main>
+    <main id="main" tabindex="-1"></main>
   </div>
 
-  <div class="modal hidden" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-    <div class="modal-card" id="modalCard"></div>
+  <div class="modal hidden" id="modal">
+    <div class="modal-card" id="modalCard" role="dialog" aria-modal="true" aria-labelledby="modalTitle" tabindex="-1"></div>
   </div>
 
-  <div class="demo" id="demo">
-    <button type="button" class="demo-toggle" id="demoToggle" aria-expanded="false">🧪 Demo</button>
-    <div class="demo-panel hidden" id="demoPanel">
+  <aside class="demo" id="demo" aria-label="Demo controls">
+    <button type="button" class="demo-toggle" id="demoToggle" aria-expanded="false" aria-controls="demoPanel">🧪 Demo</button>
+    <div class="demo-panel hidden" id="demoPanel" role="group" aria-label="Demo controls">
       <b>Demo controls</b>
       <button type="button" class="btn" data-demo="reset">↺ Reset demo</button>
       <button type="button" class="btn danger" data-demo="tamper">✎ Tamper: edit Meena's punch-out in DB</button>
       <button type="button" class="btn" data-demo="publish">📌 Publish today's root</button>
-      <a class="btn" href="/worker/?w=W001" target="_blank" rel="noopener">📱 Open Meena's app</a>
+      <a class="btn" href="/worker/?w=W001" target="_blank" rel="noopener">📱 Open Meena's app <span class="sr">(opens in a new tab)</span></a>
     </div>
-  </div>
+  </aside>
   <script type="module" src="app.js"></script>
 </body>
 </html>

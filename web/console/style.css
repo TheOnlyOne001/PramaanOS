@@ -87,3 +87,18 @@ tr.badrow { background: var(--crit-soft); }
 .demo { position: fixed; right: 16px; bottom: 16px; z-index: 70; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
 .demo-toggle { min-height: 44px; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); box-shadow: var(--shadow); cursor: pointer; font-weight: 700; }
 .demo-panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; display: flex; flex-direction: column; gap: 6px; box-shadow: var(--shadow); width: min(320px, calc(100vw - 32px)); }
+
+/* a11y additions */
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.int-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.int-row .btn.light[data-roots] { margin-left: auto; }
+.people .linkish { min-height: 24px; padding: 2px 0; }
+table.kv th { text-align: left; white-space: nowrap; vertical-align: top; padding-right: 12px; }
+.brk { word-break: break-all; }
+ol.proof { padding-left: 1.4em; word-break: break-all; }
+.modal-card:focus { outline: none; }
+.modal-card h3 { margin-top: 16px; }
+/* a11y: alert banner keeps >= 4.5:1 in both themes (dark-theme --crit is a light red) */
+.integrity.bad { background: #a8231b; color: #fff; }
+.btn.light { background: #fff; color: #8c1d18; border-color: #fff; }
+.integrity.ok .btn.light { color: #08524f; }

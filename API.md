@@ -13,7 +13,21 @@ An event dict looks like:
 where `ref` is the first 4 hex chars of the hash, upper case, and `receipt` is
 `{worker_id, seq, ref, ts, type, hash, text, text_en, lang, channel}` or null.
 
-## Core (done) — `saakshi/core_api.py`
+## Authentication — `saakshi/auth.py`
+
+Every `/api` route needs `Authorization: Bearer <token>` unless it is public. Policy, roles and
+the threat model are in [SECURITY.md](SECURITY.md). 401 = missing, bad or expired token;
+403 = wrong role or someone else's record. Anything not in the policy table is refused.
+
+| Method | Path | Body / query | Returns |
+| --- | --- | --- | --- |
+| POST | /auth/demo-login | `{role:"worker"\|"supervisor"\|"hr"\|"auditor", worker_id?}` | `{token, role, sub, wid?, exp}` — demo only (404 when `SAAKSHI_DEMO=0`); production uses phone OTP or a PIN on a shared phone |
+
+Public (no token): `GET /site`, `GET /rules`, `GET /voice/topics`, `POST /relay/voice/reports`
+(anonymous by design), `GET /passport/issuers`, `GET /passport/status`,
+`GET /passport/credentials/{id}` and `/qr`, `POST /edge/events` (box-signed), `/demo/*` (demo mode only).
+
+## Core — `saakshi/core_api.py`
 
 | Method | Path | Body / query | Returns |
 | --- | --- | --- | --- |

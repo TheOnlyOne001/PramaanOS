@@ -13,8 +13,9 @@
   <script src="/shared/voice-client.js" defer></script>
 </head>
 <body>
+  <a class="skip-link" href="#screen">Skip to content</a>
   <div class="phone" id="phone">
-    <header class="top">
+    <header class="top" role="banner">
       <div class="who">
         <div class="avatar" id="avatar" aria-hidden="true">M</div>
         <div>
@@ -33,7 +34,7 @@
       </div>
     </header>
     <div id="banner" aria-live="assertive"></div>
-    <main id="screen" tabindex="-1"></main>
+    <main id="screen" tabindex="-1" aria-live="polite" aria-busy="false"></main>
     <nav class="tabs" id="tabs" aria-label="Screens"></nav>
   </div>
   <script type="module" src="app.js"></script>

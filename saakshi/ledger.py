@@ -10,6 +10,7 @@ recomputed from content. Any direct database edit shows up in at least one.
 """
 from __future__ import annotations
 
+import copy
 import json
 import threading
 from datetime import datetime, timezone
@@ -51,6 +52,11 @@ class Ledger:
         self.keys = keys
         self.lock = lock
         self.site = site
+        # Efficiency: verify() result cache + verified checkpoint for incremental (append-only) re-checks.
+        self._own_changes = 0          # rows this Ledger itself wrote (appends, receipts, root publishes)
+        self._ck: dict | None = None   # last verified checkpoint, see _verify_full / _verify_tail
+        self._pubs: dict[str, str] = {}
+        self._memo: dict = {"fp": None, "data": {}}
 
     # --- write ---------------------------------------------------------------
 
@@ -75,6 +81,7 @@ class Ledger:
                 (seq, self.site, ts, ts[:10], type, worker_id,
                  json.dumps(payload, ensure_ascii=False, sort_keys=True), prev, h, sig, signer),
             )
+            self._own_changes += 1
             ev = {**body, "day": ts[:10], "hash": h, "sig": sig, "signer": signer, "ref": ref_of(h)}
             ev["receipt"] = self._issue_receipt(ev, channel) if (worker_id and receipt) else None
         return ev
@@ -91,6 +98,7 @@ class Ledger:
             " VALUES (?,?,?,?,?,?,?,?,?,?)",
             (ev["worker_id"], ev["seq"], ev["ref"], ev["ts"], ev["type"], ev["hash"], text, text_en, channel, created),
         )
+        self._own_changes += 1
         return {"worker_id": ev["worker_id"], "seq": ev["seq"], "ref": ev["ref"], "ts": ev["ts"],
                 "type": ev["type"], "hash": ev["hash"], "text": text, "text_en": text_en,
                 "lang": lang, "channel": channel}
@@ -121,24 +129,54 @@ class Ledger:
     def count(self) -> int:
         return self.conn.execute("SELECT COUNT(*) FROM events").fetchone()[0]
 
+    # --- change detection ----------------------------------------------------
+
+    def db_fingerprint(self) -> tuple:
+        """Changes on ANY write to this database: by this connection (total_changes, which counts every
+        INSERT/UPDATE/DELETE row, raw SQL included) or by any other connection/process (data_version)."""
+        return (id(self.conn), self.conn.total_changes, self.conn.execute("PRAGMA data_version").fetchone()[0])
+
+    def memo(self, key, fn):
+        """Return fn() cached until the next write to the database (see db_fingerprint). Callers get a copy."""
+        fp = self.db_fingerprint()
+        m = self._memo
+        if m["fp"] != fp:
+            m = self._memo = {"fp": fp, "data": {}}
+        if key not in m["data"]:
+            m["data"][key] = fn()
+        return copy.deepcopy(m["data"][key])
+
+    def _snapshot(self) -> dict:
+        """Read under the lock, BEFORE reading rows: any write not reflected here forces a later re-check."""
+        n, mx = self.conn.execute("SELECT COUNT(*), COALESCE(MAX(seq), 0) FROM events").fetchone()
+        return {"total_changes": self.conn.total_changes, "own": self._own_changes,
+                "data_version": self.conn.execute("PRAGMA data_version").fetchone()[0], "count": n, "max_seq": mx}
+
+    @staticmethod
+    def _fp(snap: dict) -> tuple:
+        return (snap["total_changes"], snap["data_version"], snap["count"], snap["max_seq"])
+
     # --- integrity -----------------------------------------------------------
 
     def content_hash(self, ev: dict) -> str:
         return sha256_hex(canonical(body_of(ev)))
 
-    def verify(self) -> dict:
-        """Full integrity check. Returns {ok, n_events, problems, roots}."""
-        problems: list[dict] = []
-        pubs: dict[str, str] = {}
-        prev_hash, prev_seq = GENESIS, 0
-        with self.lock:
-            rows = self.conn.execute("SELECT * FROM events ORDER BY seq ASC").fetchall()
+    def _pub(self, signer: str) -> str:
+        if signer not in self._pubs:
+            self._pubs[signer] = self.keys.public_hex(signer)
+        return self._pubs[signer]
+
+    def _check_rows(self, rows, ck: dict) -> None:
+        """Hash, signature and link checks for `rows` (seq order), continuing the chain state in `ck`."""
+        problems, days = ck["problems"], ck["days"]
+        prev_hash, prev_seq = ck["head"], ck["seq"]
         for r in rows:
             try:
                 ev = _row_to_event(r)
             except (ValueError, TypeError):
                 problems.append({"seq": r["seq"], "kind": "unreadable", "detail": "payload is not valid JSON",
                                  "worker_id": r["worker_id"], "type": r["type"]})
+                ck["unreadable"] = True
                 prev_hash, prev_seq = r["hash"], r["seq"]
                 continue
             base = {"seq": ev["seq"], "worker_id": ev["worker_id"], "type": ev["type"], "ts": ev["ts"]}
@@ -153,20 +191,83 @@ class Ledger:
                 problems.append({**base, "kind": "content_edited",
                                  "detail": "content no longer matches its signed hash (edited after signing)",
                                  "stored_hash": ev["hash"], "recomputed_hash": recomputed})
-            if ev["signer"] not in pubs:
-                pubs[ev["signer"]] = self.keys.public_hex(ev["signer"])
-            if not verify_sig(pubs[ev["signer"]], bytes.fromhex(ev["hash"]), ev["sig"]):
+            if not verify_sig(self._pub(ev["signer"]), bytes.fromhex(ev["hash"]), ev["sig"]):
                 problems.append({**base, "kind": "bad_signature",
                                  "detail": f"signature by '{ev['signer']}' does not verify"})
+            days.setdefault(r["day"], []).append((ev["seq"], recomputed))
             prev_hash, prev_seq = ev["hash"], ev["seq"]
-        roots = self.roots_status()
+        ck["head"], ck["seq"], ck["n"] = prev_hash, prev_seq, ck["n"] + len(rows)
+
+    def _roots_from(self, ck: dict) -> list[dict]:
+        """roots_status() computed from the checkpoint's content hashes instead of re-reading every event."""
+        if ck["unreadable"]:
+            return self._roots_status_scan()  # same behaviour as before for unreadable rows
+        out = []
+        for rt in self.roots():
+            key = (rt["day"], rt["last_seq"])
+            current = ck["root_memo"].get(key)
+            if current is None:
+                current = merkle_root([h for seq, h in ck["days"].get(rt["day"], []) if seq <= rt["last_seq"]])
+                if rt["last_seq"] <= ck["seq"]:  # only memoise roots whose events are all in the checkpoint
+                    ck["root_memo"][key] = current
+            out.append({"day": rt["day"], "published": rt["root"], "current": current,
+                        "ok": current == rt["root"], "n_events": rt["n_events"], "published_at": rt["published_at"]})
+        return out
+
+    def _verify_full(self) -> dict:
+        with self.lock:
+            snap = self._snapshot()
+            rows = self.conn.execute("SELECT * FROM events ORDER BY seq ASC").fetchall()
+        self._pubs = {}
+        ck = {"snap": snap, "head": GENESIS, "seq": 0, "n": 0, "problems": [], "days": {}, "unreadable": False,
+              "root_memo": {}}
+        self._check_rows(rows, ck)
+        return ck
+
+    def _verify_tail(self, ck: dict) -> dict | None:
+        """Re-check only events appended since `ck`. None means 'not provably append-only: do a full check'."""
+        old = ck["snap"]
+        with self.lock:
+            snap = self._snapshot()
+            foreign = (snap["total_changes"] - old["total_changes"]) - (snap["own"] - old["own"])
+            if foreign or snap["data_version"] != old["data_version"] or snap["count"] < old["count"]:
+                return None
+            rows = self.conn.execute("SELECT * FROM events WHERE seq>? ORDER BY seq ASC", (ck["seq"],)).fetchall()
+        if len(rows) != snap["count"] - old["count"]:
+            return None
+        new = {**ck, "snap": snap, "problems": list(ck["problems"]),
+               "days": {d: list(v) for d, v in ck["days"].items()}, "root_memo": dict(ck["root_memo"])}
+        self._check_rows(rows, new)
+        return new
+
+    def verify(self, full: bool = False) -> dict:
+        """Full integrity check. Returns {ok, n_events, problems, roots}.
+
+        Cached: the result is reused only while the database fingerprint (rows written by this connection,
+        commits by any other connection, event count, max seq) is unchanged. A miss caused purely by this
+        ledger's own appends re-checks just the new tail; anything else (a raw UPDATE/DELETE, a write from
+        another process) re-checks every event from genesis.
+        """
+        ck = self._ck
+        if not full and ck is not None:
+            with self.lock:
+                hit = self._fp(self._snapshot()) == self._fp(ck["snap"]) and "result" in ck
+            if hit:
+                return {**copy.deepcopy(ck["result"]), "checked_at": now_ts()}
+        new = None if (full or ck is None) else self._verify_tail(ck)
+        if new is None:
+            new = self._verify_full()
+        problems = list(new["problems"])
+        roots = self._roots_from(new)
         for rt in roots:
             if not rt["ok"]:
                 problems.append({"seq": None, "worker_id": None, "type": "daily_root", "ts": rt["day"],
                                  "kind": "root_mismatch",
                                  "detail": f"published root for {rt['day']} no longer matches the ledger"})
-        return {"ok": not problems, "n_events": len(rows), "problems": problems, "roots": roots,
-                "head": prev_hash, "checked_at": now_ts()}
+        new["result"] = {"ok": not problems, "n_events": new["n"], "problems": problems, "roots": roots,
+                         "head": new["head"]}
+        self._ck = new
+        return {**copy.deepcopy(new["result"]), "checked_at": now_ts()}
 
     def day_content_hashes(self, day: str, upto_seq: int | None = None) -> list[str]:
         """Hashes recomputed from content (not the stored hash column)."""
@@ -194,6 +295,7 @@ class Ledger:
                 " last_seq=excluded.last_seq, published_at=excluded.published_at, sig=excluded.sig",
                 (day, root, len(evs), last_seq, published, sig),
             )
+            self._own_changes += 1
         return {"day": day, "root": root, "n_events": len(evs), "last_seq": last_seq,
                 "published_at": published, "sig": sig, "site_public_key": self.keys.public_hex("site")}
 
@@ -201,6 +303,9 @@ class Ledger:
         return [dict(r) for r in self.conn.execute("SELECT * FROM daily_roots ORDER BY day").fetchall()]
 
     def roots_status(self) -> list[dict]:
+        return self.verify()["roots"]
+
+    def _roots_status_scan(self) -> list[dict]:
         out = []
         for rt in self.roots():
             current = self.compute_root(rt["day"], upto_seq=rt["last_seq"])

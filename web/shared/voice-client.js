@@ -113,7 +113,11 @@
   try { state.workerId = root.localStorage && root.localStorage.getItem("saakshi.voice.v1.worker"); } catch (e) {}
 
   async function api(path, opts) {
-    const res = await fetch(path, Object.assign({ headers: { "Content-Type": "application/json" } }, opts || {}));
+    const headers = { "Content-Type": "application/json" };
+    // Only the issuer learns who is asking (it must, to give one token per worker per month), so only
+    // /api/voice/issue carries the worker's sign-in token. The relay call stays tokenless and anonymous.
+    if (path === "/api/voice/issue" && root.SaakshiAuth) Object.assign(headers, await root.SaakshiAuth.header("worker"));
+    const res = await fetch(path, Object.assign({}, opts || {}, { headers }));
     let body = null;
     try { body = await res.json(); } catch (e) { body = null; }
     if (!res.ok) {

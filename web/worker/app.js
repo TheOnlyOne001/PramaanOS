@@ -152,7 +152,7 @@ async function renderToday(el) {
     <section class="card chat-card">
       <h2><span aria-hidden="true">💬</span> ${esc(L("receipts_title"))}</h2>
       <p class="muted small" data-say>${esc(L("receipts_sub"))}</p>
-      <div class="chat" id="chat"></div>
+      <div class="chat" id="chat" role="log" tabindex="0" aria-label="${esc(L("receipts_title"))}"></div>
     </section>
     <section class="card" id="access"></section>
     <details class="demo" id="demo">
@@ -292,7 +292,7 @@ function otCard(p) {
       <span class="chip info">💰 ${esc(L("ot_paid_double"))} ×2</span>
       ${cap.cap ? `<span class="chip neutral">⏱️ ${esc(L("cap_line", { used: num(cap.used), cap: num(cap.cap, 0) }))}</span>` : ""}
     </div>
-    ${cap.cap ? `<div class="meter ${pct > 90 ? "crit" : pct > 75 ? "warn" : ""}" role="meter" aria-valuenow="${cap.used}" aria-valuemax="${cap.cap}"><i style="width:${pct}%"></i></div>` : ""}
+    ${cap.cap ? `<div class="meter ${pct > 90 ? "crit" : pct > 75 ? "warn" : ""}" role="meter" aria-label="${esc(L("ot_req_title"))}" aria-valuemin="0" aria-valuenow="${cap.used}" aria-valuemax="${cap.cap}"><i style="width:${pct}%"></i></div>` : ""}
     <p class="ot-choice" data-say>🤝 ${esc(L("ot_choice"))}</p>
     <div class="mic-row">
       <button type="button" class="mic" data-mic data-req="${esc(p.request_id)}" aria-label="${esc(L("mic"))}"><span aria-hidden="true">🎤</span></button>
@@ -446,12 +446,15 @@ async function renderSkills(el) {
   const creds = r.data.credentials || [];
   html += creds.length ? creds.map((c) => {
     const { skill, level, id, issued } = credParts(c);
-    const title = L("cred_title", { level: term(S.lang, "lv_", level), skill: term(S.lang, "sk_", skill) });
+    // Safety inductions carry no ILUO level: show the credential's own label instead.
+    const title = level
+      ? L("cred_title", { level: term(S.lang, "lv_", level), skill: term(S.lang, "sk_", skill) })
+      : ((c.credentialSubject && c.credentialSubject.skillLabel) || String(skill || "").replace(/_/g, " "));
     return `<section class="card cred" data-say="${esc(L("verified_skill"))}: ${esc(title)}">
       <span class="chip ok">✓ ${esc(L("verified_skill"))}</span>
       <h2 class="cred-title">${esc(title)}</h2>
       ${issued ? `<p class="muted small">${esc(L("issued", { date: day(issued) }))}</p>` : ""}
-      <img class="qr" alt="QR" src="/api/passport/credentials/${encodeURIComponent(id)}/qr" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'qr qr-missing',textContent:'QR'}))">
+      <img class="qr" alt="${esc(L("verified_skill"))}: ${esc(title)} — QR" width="180" height="180" src="/api/passport/credentials/${encodeURIComponent(id)}/qr">
       <p class="small">${esc(L("scan_note"))}</p>
       <p class="mono small id-line">${esc(id)}</p>
       <a class="btn link-btn" href="/verify/" target="_blank" rel="noopener">🔎 ${esc(L("open_verify"))}</a>
@@ -466,13 +469,14 @@ async function renderSkills(el) {
       const title = L("cred_title", { level: term(S.lang, "lv_", p.level), skill: term(S.lang, "sk_", p.skill) });
       return `<li data-say="${esc(title)}: ${esc(L("days_progress", { met, needed }))}">
         <div class="row-between"><b>${p.met ? "✓ " : ""}${esc(title)}</b><span class="small">${esc(L("days_progress", { met, needed }))}</span></div>
-        <div class="meter"><i style="width:${pct}%"></i></div>
+        <div class="meter" role="progressbar" aria-label="${esc(title)}" aria-valuemin="0" aria-valuemax="${esc(needed || 100)}" aria-valuenow="${esc(needed ? met : Math.round(pct))}"><i style="width:${pct}%"></i></div>
         ${band || p.pay ? `<div class="small">💰 ${esc(L("pay_band", { band: band ? term(S.lang, "band_", band) : "" }))}${p.pay ? " · " + esc(rupees(p.pay)) : ""}${p.min_wage ? " · " + esc(rupees(p.min_wage)) : ""}</div>` : ""}
         ${p.criteria ? `<div class="small muted">${esc(typeof p.criteria === "string" ? p.criteria : Object.entries(p.criteria).map(([k, v]) => `${k} ${v}`).join(" · "))}${p.current ? ` · now ${esc(typeof p.current === "string" ? p.current : Object.entries(p.current).map(([k, v]) => `${k} ${typeof v === "number" ? num(v, 2) : v}`).join(" · "))}` : ""}</div>` : ""}
       </li>`;
     }).join("")}</ul></section>`;
   }
   el.innerHTML = html;
+  el.querySelectorAll("img.qr").forEach((img) => img.addEventListener("error", () => { const d = document.createElement("div"); d.className = "qr qr-missing"; d.textContent = "QR"; d.setAttribute("role", "img"); d.setAttribute("aria-label", img.alt); img.replaceWith(d); }, { once: true }));
 }
 
 // --- Voice -------------------------------------------------------------------------------
