@@ -18,7 +18,7 @@ target-version = "py311"
 [tool.ruff.lint]
 # pycodestyle, pyflakes, bugbear, bandit, isort, pyupgrade, simplify, ruff, comprehensions,
 # pie, return, perflint and pylint: a strict, security-aware rule set.
-select = ["E", "F", "W", "B", "S", "I", "UP", "SIM", "RUF", "C4", "PIE", "RET", "PERF", "PL"]
+select = ["E", "F", "W", "B", "S", "I", "UP", "SIM", "RUF", "C4", "PIE", "RET", "PERF", "PL", "D100", "D101", "D103"]
 ignore = [
   "S101",     # assert is fine in tests
   "S311",     # random is used for demo data, never for secrets
@@ -32,8 +32,10 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["S"]
-"scripts/*" = ["S"]
+"tests/*" = ["S", "D"]
+"scripts/*" = ["S", "D"]
+"api/*" = ["D"]
+"main.py" = ["D"]
 
 [tool.coverage.run]
 source = ["saakshi"]
