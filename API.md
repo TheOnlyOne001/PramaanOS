@@ -32,7 +32,8 @@ the threat model are in [SECURITY.md](SECURITY.md). 401 = missing, bad or expire
 
 Public (no token): `GET /healthz`, `GET /site`, `GET /rules`, `GET /voice/topics`, `POST /relay/voice/reports`
 (anonymous by design), `GET /passport/issuers`, `GET /passport/status`,
-`GET /passport/credentials/{id}` and `/qr`, `POST /edge/events` (box-signed), `/demo/*` (demo mode only).
+`GET /passport/credentials/{id}` and `/qr`, `POST /edge/events`, `POST /edge/punch` and `POST /edge/heartbeat`
+(box-signed), `GET /edge/zones`, `/demo/*` (demo mode only).
 
 ## Core — `saakshi/core_api.py`
 
@@ -154,6 +155,27 @@ Event types: `production.count`, `credential.issued`, `credential.revoked`.
 | GET | /edge/cameras | | camera register: `[{camera, zone, purpose, owner, retention_hours}]` |
 
 kinds: `restricted_zone_entry`, `ppe_noncompliance`, `ppe_compliance_rate`, `fire_smoke`, `blocked_exit`, `person_down`, `queue_length`, `near_miss`, `heat_wbgt`.
+`zone` is free text checked by the privacy guard, so a `restricted_zone_entry` may name any zone configured below.
+
+### Webcam box: badges, camera punches, zones, heartbeats — `saakshi/edge/{badge,camera_punch,zones,heartbeat}.py`
+
+Faces are never identified: at the camera, identity comes **only** from the worker's rotating badge, a QR of
+`token = "SKB1." + b64url(canonical({wid, exp, n})) + "." + b64url(Ed25519 "site" signature over those canonical bytes)`
+(`exp` unix seconds = now + 30, `n` random 8-byte hex nonce, single use). Box-signed bodies use the same scheme as
+`POST /edge/events`: `sig` = Ed25519 by the box key over `canonical(body without sig)`; 401 for an unknown box or bad
+signature. Box bodies accept only the fields listed (422 `unknown fields` otherwise), so nothing else can ride along.
+
+| Method | Path | Body / query | Returns |
+| --- | --- | --- | --- |
+| GET | /workers/{id}/badge | | `{token, expires_at, ttl:30, worker_id, name}` — worker self, or supervisor (demo display); 404 unknown worker |
+| POST | /edge/punch | `{box_id, camera, badge, ts, sig}` box-signed (public route) | `{worker_id, name, kind:"in"\|"out", seq, ts, receipt_text, receipt_text_en}` — toggles: last punch today `punch.in` → `punch.out`, else `punch.in`; event payload `{device: camera, via:"badge"}`, receipt in the worker's language. 422 forged/malformed badge, 409 `badge expired` (5 s skew allowed), 409 `badge already used` (nonce), 409 `just punched` (< 60 s since the worker's last punch) |
+| GET | /edge/zones | `camera=cam-01` | `{camera, zones:[{id, name, kind:"restricted", points:[[x,y],...], updated_at}]}` — public (zone shapes are not personal data); `cam-01` defaults to "Press zone" (right third of the frame); unknown camera → `zones:[]` |
+| PUT | /edge/zones | `{camera, zones:[{id?, name (1–40), kind:"restricted", points:[[x,y]] (3–20, each in [0,1])}]}` (≤10 zones, replaces the set) | `{camera, zones}` as above; 422 out-of-range, too few/many points, area ≤ 0.001, duplicate id/name, name failing the privacy guard; appends signed `edge.zones_set` (`{camera, zones}`, worker_id null) — supervisor/hr |
+| POST | /edge/heartbeat | `{box_id, camera, ts, fps?, device?, backend?, face_backend?, faces_blurred_total?, persons_now?, in_zone_now?, preview_url?, sig}` box-signed (public route) | the stored status row; kept in memory, never in the ledger; 422 unless `preview_url` is `http(s)://127.0.0.1` or `localhost` (any port, optional path) |
+| GET | /edge/status | | `[{camera, box_id, last_seen, online (heartbeat within 10 s), fps, device, backend, face_backend, faces_blurred_total, persons_now, in_zone_now, preview_url}]` sorted by camera — supervisor/hr/auditor |
+
+The CSP `img-src` also allows `config.EDGE_PREVIEW_ORIGINS` (env `SAAKSHI_EDGE_PREVIEW`, comma- or space-separated
+origins, default `http://127.0.0.1:8765 http://localhost:8765`) so the camera page can embed the box's MJPEG preview.
 
 ## Safety reports — `saakshi/safety/`
 

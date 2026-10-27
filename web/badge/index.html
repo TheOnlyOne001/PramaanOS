@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Saakshi · My badge</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;700&family=Noto+Sans+Oriya:wght@400;700&family=Noto+Sans+Tamil:wght@400;700&display=swap">
+  <link rel="stylesheet" href="/shared/tokens.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <a class="skip-link" href="#main" data-t="skip">Skip to content</a>
+  <header class="top">
+    <span class="brand"><span class="mark" aria-hidden="true">◆</span> <b>Saakshi</b></span>
+    <span class="kicker" data-t="badge">Work badge</span>
+  </header>
+  <main id="main" tabindex="-1" class="wrap">
+    <h1 class="who"><span id="name">…</span> <span class="wid mono" id="wid"></span></h1>
+
+    <section class="qr-card" aria-labelledby="qrHint">
+      <div class="qr" id="qr" role="img" aria-label="Badge code, loading"></div>
+      <p class="hint" id="qrHint" data-t="show">Show this to the camera to punch in/out</p>
+      <div class="timer">
+        <svg class="ring" viewBox="0 0 44 44" aria-hidden="true">
+          <circle class="ring-bg" cx="22" cy="22" r="19"></circle>
+          <circle class="ring-fg" id="ring" cx="22" cy="22" r="19"></circle>
+        </svg>
+        <span class="secs" id="secs" aria-hidden="true">–</span>
+        <span class="tlabel" id="tlabel" data-t="refresh">New code every 30 seconds</span>
+      </div>
+      <p class="err hidden" id="err" role="alert"></p>
+    </section>
+
+    <section class="last" aria-labelledby="lastTitle">
+      <h2 id="lastTitle" data-t="last">Last punch</h2>
+      <p class="last-text" id="lastText" role="status" aria-live="polite" data-t="none">No punch yet today.</p>
+      <p class="last-time muted" id="lastTime"></p>
+    </section>
+
+    <p class="wake" id="wake"><span aria-hidden="true">☀</span> <span id="wakeText" data-t="wake">Keep the screen on and bright while you are at the gate.</span></p>
+    <p class="note muted" data-t="privacy">The camera blurs faces. Only this code marks your attendance.</p>
+  </main>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

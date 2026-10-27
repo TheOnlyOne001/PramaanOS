@@ -7,7 +7,8 @@ to the ledger (worker_id None: these are about places, not people).
 
 Modules: `cameras` (kinds and camera notices), `privacy` (the guard), `ingest`
 (sign/verify/append), `reports` (recent events, daily summary), `seed` (demo data),
-`api` (HTTP routes).
+`badge` (rotating worker badge tokens), `camera_punch` (badge punches from the box), `zones` (restricted
+zone polygons per camera), `heartbeat` (box liveness, in memory), `clock`, `api` (HTTP routes).
 """
 from __future__ import annotations
 

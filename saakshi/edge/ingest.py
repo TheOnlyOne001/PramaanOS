@@ -62,17 +62,26 @@ def _validate(body: dict[str, Any]) -> None:
         raise HTTPException(422, "'ts' must be ISO 8601") from None
 
 
+def verify_box(body: dict[str, Any]) -> None:
+    """Raise 401 unless `box_id` is a registered box and `sig` is its signature over canonical(body without sig).
+
+    Shared by every box-signed route (events, camera punches, heartbeats).
+    """
+    box_id, sig = body.get("box_id"), body.get("sig")
+    if not isinstance(box_id, str) or box_id not in BOX_KEYS:
+        raise HTTPException(401, f"unknown edge box '{box_id}'")
+    unsigned = {k: v for k, v in body.items() if k != "sig"}
+    if not isinstance(sig, str) or not verify_sig(state.get().keys.public_hex(BOX_KEYS[box_id]), canonical(unsigned), sig):
+        raise HTTPException(401, "signature does not verify against the box key")
+
+
 def ingest(body: dict[str, Any]) -> Event:
     """Validate, verify and record one event. Raises HTTPException (422 privacy/shape, 401 signature)."""
     if not isinstance(body, dict):
         raise HTTPException(422, "body must be a JSON object")
     _validate(body)
-    if body["box_id"] not in BOX_KEYS:
-        raise HTTPException(401, f"unknown edge box '{body['box_id']}'")
+    verify_box(body)
     st = state.get()
-    unsigned = {k: v for k, v in body.items() if k != "sig"}
-    if not verify_sig(st.keys.public_hex(BOX_KEYS[body["box_id"]]), canonical(unsigned), body["sig"]):
-        raise HTTPException(401, "signature does not verify against the box key")
     payload = {"box_id": body["box_id"], "camera": body["camera"], "zone": body["zone"], "kind": body["kind"],
                "count": body.get("count"), "value": body.get("value"), "box_ts": body["ts"], "box_sig": body["sig"]}
     return st.ledger.append(events.EDGE_EVENT, payload, worker_id=None, ts=body["ts"], signer="site")

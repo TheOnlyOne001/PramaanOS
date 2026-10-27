@@ -27,8 +27,10 @@ errors.install(app)  # unhandled exceptions → JSON 500 with a request id, neve
 # middleware below wraps it and 401/403 responses carry the same headers.
 app.add_middleware(auth.AuthMiddleware)
 # Strict browser policy: no inline or third-party scripts, no framing, no sniffing.
+# img-src also allows the edge box's local MJPEG preview (config.EDGE_PREVIEW_ORIGINS, env SAAKSHI_EDGE_PREVIEW).
+IMG_SRC = " ".join(("'self'", "data:", "blob:", *config.EDGE_PREVIEW_ORIGINS))
 CSP = ("default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
-       "font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; "
+       f"font-src 'self' https://fonts.gstatic.com; img-src {IMG_SRC}; connect-src 'self'; "
        "media-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'")
 
 
@@ -50,7 +52,7 @@ async def security_headers(request: Request, call_next: RequestResponseEndpoint)
 for m in (auth, core_api, pay, voice, passport, edge, safety, console):
     app.include_router(m.router)
 
-for name in ("worker", "console", "verify", "shared", "landing"):  # landing: assets of web/index.html
+for name in ("worker", "console", "verify", "shared", "landing", "camera", "badge"):  # landing: assets of web/index.html
     d = config.WEB / name
     with suppress(OSError):
         d.mkdir(parents=True, exist_ok=True)

@@ -1,5 +1,6 @@
 """Site-wide settings. One demo site: an export garment unit in Tamil Nadu."""
 import os
+import re
 import tempfile
 from pathlib import Path
 
@@ -25,3 +26,13 @@ DEMO_MODE = os.environ.get("SAAKSHI_DEMO", "1") != "0"
 
 # Bearer-token authentication + role policy (saakshi/auth.py). ON unless SAAKSHI_AUTH=0.
 AUTH_ENABLED = os.environ.get("SAAKSHI_AUTH", "1") != "0"
+
+
+def preview_origins(raw: str) -> tuple[str, ...]:
+    """Parse a comma- or space-separated origin list, keeping only bare http(s) origins (no paths, no ';')."""
+    ok = re.compile(r"^https?://[A-Za-z0-9.-]+(:\d{1,5})?$")
+    return tuple(o for o in re.split(r"[,\s]+", raw) if ok.fullmatch(o))
+
+
+# Where the edge box serves its local MJPEG preview; added to the CSP img-src so the camera page can embed it.
+EDGE_PREVIEW_ORIGINS = preview_origins(os.environ.get("SAAKSHI_EDGE_PREVIEW", "http://127.0.0.1:8765 http://localhost:8765"))

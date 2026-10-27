@@ -1,0 +1,37 @@
+/* Worker phone badge: one big scannable code, high contrast, readable at 320px. */
+body { min-height: 100vh; }
+.top { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--surface); }
+.brand { font-size: 1.05rem; } .mark { color: var(--accent); }
+.kicker { font-weight: 700; color: var(--text-muted); font-size: .9rem; }
+.wrap { max-width: 460px; margin: 0 auto; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+.wrap:focus { outline: none; }
+.who { margin: 4px 0 0; font-size: clamp(1.35rem, 6vw, 1.8rem); line-height: 1.2; text-align: center; }
+.wid { display: inline-block; font-size: .9rem; color: var(--text-muted); background: var(--surface-2); border: 1px solid var(--border); padding: 2px 8px; border-radius: 6px; vertical-align: middle; }
+
+.qr-card { background: var(--surface); border: 2px solid var(--text); border-radius: 20px; padding: 16px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+/* The code is always black on white, whatever the theme: cameras read it best that way. */
+.qr { width: min(100%, 340px); aspect-ratio: 1; background: #fff; border-radius: 12px; display: grid; place-items: center; }
+.qr svg { width: 100%; height: 100%; display: block; }
+.qr.stale { opacity: .35; }
+.qr.flip { animation: flip .35s ease-out; }
+@keyframes flip { from { opacity: .3; transform: scale(.97); } to { opacity: 1; transform: none; } }
+.hint { margin: 0; font-size: clamp(1.15rem, 5.4vw, 1.45rem); font-weight: 800; text-align: center; line-height: 1.25; }
+.timer { display: flex; align-items: center; gap: 10px; position: relative; }
+.ring { width: 44px; height: 44px; transform: rotate(-90deg); flex: none; }
+.ring-bg { fill: none; stroke: var(--surface-2); stroke-width: 5; }
+.ring-fg { fill: none; stroke: var(--accent); stroke-width: 5; stroke-linecap: round; stroke-dasharray: 119.4; stroke-dashoffset: 0; transition: stroke-dashoffset .25s linear; }
+.ring-fg.low { stroke: var(--warn); }
+.secs { position: absolute; left: 0; width: 44px; text-align: center; font-weight: 800; font-size: .95rem; font-variant-numeric: tabular-nums; }
+.tlabel { font-size: .92rem; color: var(--text-muted); font-weight: 600; }
+.err { margin: 0; color: var(--crit); font-weight: 700; text-align: center; }
+
+.last { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 14px 16px; }
+.last h2 { margin: 0 0 6px; font-size: .85rem; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); }
+.last-text { margin: 0; font-size: 1.1rem; font-weight: 700; }
+.last-time { margin: 4px 0 0; font-size: .88rem; }
+.last.fresh { border-color: var(--ok); background: var(--ok-soft); }
+.last.fresh .last-text { color: var(--ok); }
+.wake { margin: 0; padding: 12px 14px; border-radius: 12px; background: var(--warn-soft); color: var(--warn); font-weight: 650; font-size: .95rem; }
+.wake.on { background: var(--ok-soft); color: var(--ok); }
+.note { margin: 0; font-size: .85rem; text-align: center; }
+:root:lang(ta) .hint, :root:lang(or) .hint { font-size: clamp(1.05rem, 5vw, 1.3rem); }

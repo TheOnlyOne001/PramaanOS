@@ -5,7 +5,9 @@
 // Demo: tokens come from POST /api/auth/demo-login (works only with SAAKSHI_DEMO=1). In production the
 // worker signs in with phone OTP / a PIN on a shared phone and staff via SSO; the header is the same.
 
-const PAGE = location.pathname.startsWith("/console") ? "console" : "worker";
+// Page roles: /console/ and the live edge camera page (/camera/) act as the supervisor; the worker app and
+// the worker's phone badge (/badge/?w=W001) act as the worker named by ?w=.
+const PAGE = /^\/(console|camera)(\/|$)/.test(location.pathname) ? "console" : "worker";
 const WID = (() => {
   try { return new URLSearchParams(location.search).get("w") || "W001"; } catch { return "W001"; }
 })();

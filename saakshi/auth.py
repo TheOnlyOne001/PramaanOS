@@ -58,12 +58,15 @@ POLICY: list[tuple[str, str, tuple[str, ...]]] = [
     ("GET", r"/passport/status", PUBLIC),
     ("GET", r"/passport/credentials/[^/]+(/qr)?", PUBLIC),
     ("POST", r"/edge/events", PUBLIC),                # authenticated by the box's Ed25519 signature
+    ("POST", r"/edge/(punch|heartbeat)", PUBLIC),     # box-signed too; a punch also needs the worker's site-signed badge
+    ("GET", r"/edge/zones", PUBLIC),                  # zone shapes on a frame are not personal data
     ("POST", r"/auth/demo-login", PUBLIC),            # refuses unless DEMO_MODE
     ("*", r"/demo/.+", PUBLIC),                       # each handler refuses unless DEMO_MODE
     # A worker's own record.
     ("GET", r"/workers", ANY),
     ("GET", rf"/workers/{W}", ("self", "supervisor", "hr", "auditor")),
     ("GET", rf"/workers/{W}/receipts", ("self", "auditor")),
+    ("GET", rf"/workers/{W}/badge", ("self", "supervisor")),   # supervisor: demo display at the camera page
     ("POST", rf"/workers/{W}/receipts/check", ("self", "auditor")),
     ("GET", rf"/workers/{W}/access-log", ("self", "auditor")),
     ("POST", rf"/workers/{W}/lookup", ("supervisor", "hr")),   # viewer is taken from the token
@@ -103,7 +106,8 @@ POLICY: list[tuple[str, str, tuple[str, ...]]] = [
     ("GET", r"/safety/reports", ("query_self", "supervisor", "hr", "auditor")),
     ("POST", r"/safety/reports/[^/]+/(ack|resolve)", ("supervisor", "hr")),
     ("GET", r"/sdg8/scorecard", EMPLOYER),
-    ("GET", r"/edge/(events|summary|cameras)", EMPLOYER),
+    ("GET", r"/edge/(events|summary|cameras|status)", EMPLOYER),
+    ("PUT", r"/edge/zones", ("supervisor", "hr")),
     ("GET", r"/ledger/verify", ANY),                 # workers must be able to verify the chain
     ("GET", r"/ledger/roots", ANY),
     ("GET", r"/ledger/events(/\d+(/proof)?)?", EMPLOYER),

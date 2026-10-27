@@ -10,7 +10,7 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: "22" }
       - run: pip install -r requirements.txt ruff==0.16.9 mypy==2.3.1 pytest-cov hypothesis
-      - run: ruff check saakshi scripts tests api main.py
+      - run: ruff check saakshi edge_box scripts tests api main.py
       - name: mypy (packages = ["saakshi"] in pyproject.toml)
         run: mypy
       - run: python -m pytest --cov=saakshi --cov-report=term-missing --cov-fail-under=83

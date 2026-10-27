@@ -75,6 +75,9 @@ CREDENTIAL_REVOKED: Final = "credential.revoked"
 EDGE_EVENT: Final = "edge.event"
 """Safety event counted on the on-site camera box (no video or faces leave the box)."""
 
+EDGE_ZONES_SET: Final = "edge.zones_set"
+"""Supervisor or HR redrew a camera's restricted zones (payload: `camera, zones:[{id, name, kind, points, updated_at}]`)."""
+
 # --- Voice --------------------------------------------------------------------------------------
 VOICE_REPORT: Final = "voice.report"
 """Anonymous worker report accepted by the relay; carries no identity."""
@@ -97,6 +100,6 @@ ALL: Final[frozenset[str]] = frozenset({
     PUNCH_IN, PUNCH_OUT, PUNCH_CORRECTION, ATTENDANCE_OPENING_BALANCE, PRODUCTION_COUNT, ACCESS_LOOKUP,
     OT_REQUEST, OT_CAP_CHECK, OT_CONSENT, OT_OPENING_BALANCE, PAY_RUN, PF_DEPOSIT, PAY_PAID, PAY_ADJUSTMENT,
     DISPUTE_OPENED, DISPUTE_ASSIGNED, DISPUTE_RESOLVED,
-    CREDENTIAL_ISSUED, CREDENTIAL_REVOKED, EDGE_EVENT, VOICE_REPORT, VOICE_RESPONSE,
+    CREDENTIAL_ISSUED, CREDENTIAL_REVOKED, EDGE_EVENT, EDGE_ZONES_SET, VOICE_REPORT, VOICE_RESPONSE,
 })
 """Every known event type, for validation and tests."""

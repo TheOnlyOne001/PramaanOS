@@ -43,10 +43,6 @@ class Camera(TypedDict):
     processing: str
 
 
-
-
-
-
 def _camera(camera: str, zone: str, purpose: str, kinds: list[str]) -> Camera:
     """Return a camera notice with the site-wide owner, retention and on-device processing terms."""
     return {"camera": camera, "zone": zone, "purpose": purpose, "kinds": kinds, "owner": OWNER,
@@ -55,7 +51,8 @@ def _camera(camera: str, zone: str, purpose: str, kinds: list[str]) -> Camera:
 
 
 CAMERAS = [
-    _camera("cam-01", "Gate", "Exit kept clear; crowding at shift change", ["blocked_exit", "queue_length"]),
+    _camera("cam-01", "Gate", "Live edge camera: attendance by worker QR badge, a restricted area drawn on the live view, "
+            "exit kept clear; faces blurred on device", ["restricted_zone_entry", "blocked_exit", "queue_length"]),
     _camera("cam-04", "Line 4", "PPE (needle guards, masks) and near misses on the line",
             ["ppe_compliance_rate", "ppe_noncompliance", "near_miss", "person_down"]),
     _camera("cam-07", "Press zone", "Keep people out of the press area while it runs; heat",

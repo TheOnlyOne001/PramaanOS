@@ -10,7 +10,7 @@ test:      ## unit, property, contract, security, perf and e2e tests with covera
 	python3 -m pytest --cov=saakshi --cov-report=term-missing
 
 lint:      ## strict ruff rule set (see pyproject.toml)
-	ruff check saakshi scripts tests api main.py
+	ruff check saakshi edge_box scripts tests api main.py
 
 typecheck: ## mypy over the saakshi package ([tool.mypy] in pyproject.toml)
 	mypy
